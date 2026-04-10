@@ -49,6 +49,6 @@ Or manually copy the APK to the phone and open it there.
 
 ## Notes
 
-- This workflow uses a Buildozer GitHub Action on Ubuntu.
+- This workflow uses the official Buildozer Docker image on Ubuntu.
 - If the build fails, open the workflow logs and look at the failed step.
 - APK building in GitHub Actions does not require WSL on your PC.

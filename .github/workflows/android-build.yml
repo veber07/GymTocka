@@ -16,17 +16,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build with Buildozer
-        uses: ArtemSBulgakov/buildozer-action@v1
-        id: buildozer
+      - name: Cache Buildozer global directory
+        uses: actions/cache@v4
         with:
-          workdir: .
-          buildozer_version: stable
-          command: buildozer android debug
+          path: ~/.buildozer
+          key: buildozer-global-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
+
+      - name: Pull official Buildozer image
+        run: docker pull ghcr.io/kivy/buildozer:latest
+
+      - name: Build APK with official Buildozer Docker image
+        run: |
+          docker run --rm \
+            -v "$HOME/.buildozer":/home/user/.buildozer \
+            -v "$PWD":/home/user/hostcwd \
+            ghcr.io/kivy/buildozer:latest \
+            android debug
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: fitspin-apk
-          path: ${{ steps.buildozer.outputs.filename }}
+          path: bin/*.apk
           if-no-files-found: error

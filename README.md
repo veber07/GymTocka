@@ -10,7 +10,7 @@ Android-first prototype for a gamified squat tracker built in Python.
 - `run_backend.py`: simple local backend launcher
 - `scripts/`: helper scripts for backend run, WSL build, and APK install
 - `buildozer.spec`: Android packaging starting point
-- `.github/workflows/android-build.yml`: remote APK build via GitHub Actions
+- `.github/workflows/android-build.yml`: remote APK build via GitHub Actions and official Buildozer Docker image
 
 ## Why the backend exists
 
