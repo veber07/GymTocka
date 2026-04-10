@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+mediapipe
+opencv-python
+numpy
+websockets
+httpx

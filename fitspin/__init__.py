@@ -1,0 +1,1 @@
+"""FitSpin Android MVP package."""

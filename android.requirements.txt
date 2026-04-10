@@ -1,0 +1,4 @@
+buildozer
+setuptools
+virtualenv
+cython==0.29.34
