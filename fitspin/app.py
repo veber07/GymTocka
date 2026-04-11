@@ -154,7 +154,9 @@ KV = """
                 text_size: self.size
 
         OverlayCard:
-            size: min(self.width * 0.92, dp(420)), "286dp"
+            size_hint: None, None
+            width: min(root.width * 0.92, dp(420))
+            height: "286dp"
             pos_hint: {"center_x": 0.5, "y": 0.03}
             Label:
                 text: "Backend URL"
