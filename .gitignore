@@ -7,3 +7,4 @@ __pycache__/
 *.pyo
 *.pyd
 fitspin_settings.json
+buildozer-ci.log

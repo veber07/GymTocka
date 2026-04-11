@@ -18,7 +18,7 @@ android.minapi = 24
 android.accept_sdk_license = True
 android.permissions = CAMERA,INTERNET
 android.archs = arm64-v8a, armeabi-v7a
-p4a.hook = camerax_provider/gradle_options.py
+p4a.hook = camerax_provider
 android.logcat_filters = python:D, python.stderr:W, ActivityManager:I, SDL:I, CameraX:I
 android.presplash_color = #11181c
 
