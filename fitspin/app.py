@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import time
+from typing import TYPE_CHECKING
 
 from kivy.app import App
 from kivy.clock import Clock
@@ -10,8 +11,10 @@ from kivy.properties import BooleanProperty, ListProperty, NumericProperty, Obje
 from kivy.storage.jsonstore import JsonStore
 from kivy.uix.boxlayout import BoxLayout
 
-from fitspin.preview import SquatPreview
 from fitspin.slot_machine import SlotMachineEngine
+
+if TYPE_CHECKING:
+    from fitspin.preview import SquatPreview
 
 
 KV = """
@@ -255,6 +258,7 @@ class FitSpinApp(App):
         self._settings_path = Path("fitspin_settings.json")
         self._settings = JsonStore(str(self._settings_path))
         self._slot_machine = SlotMachineEngine()
+        self._root: FitSpinRoot | None = None
         self._preview: SquatPreview | None = None
         self._last_rep_count = 0
         self._set_started_at: float | None = None
@@ -262,16 +266,8 @@ class FitSpinApp(App):
     def build(self):
         Builder.load_string(KV)
         root = FitSpinRoot()
+        self._root = root
         self._load_settings()
-        self._preview = SquatPreview(
-            result_listener=self._handle_pose_result,
-            error_listener=self._handle_pose_error,
-            backend_url_getter=lambda: self.backend_url,
-            should_analyze_getter=lambda: self.set_active and self.camera_running,
-            aspect_ratio="16:9",
-            orientation="portrait",
-        )
-        root.preview_box.add_widget(self._preview)
         Clock.schedule_interval(self._tick_slot_machine, 1 / 12)
         return root
 
@@ -295,14 +291,14 @@ class FitSpinApp(App):
         self.status_text = f"Backend saved: {self.backend_url}"
 
     def toggle_camera(self) -> None:
-        if not self._preview:
-            return
         if self.camera_running:
             if self.set_active:
                 self._finalize_set("Camera stopped. Set saved.")
             self._preview.disconnect_rear_camera()
             self.camera_running = False
             self.status_text = "Camera stopped."
+            return
+        if not self._ensure_preview():
             return
         self._preview.connect_rear_camera()
         self.camera_running = True
@@ -469,6 +465,30 @@ class FitSpinApp(App):
     def _load_settings(self) -> None:
         if self._settings.exists("network"):
             self.backend_url = self._settings.get("network").get("backend_url", self.backend_url)
+
+    def _ensure_preview(self) -> bool:
+        if self._preview is not None:
+            return True
+        if not self._root or not self._root.preview_box:
+            self.status_text = "Preview container is not ready yet."
+            return False
+        try:
+            from fitspin.preview import SquatPreview
+
+            self._preview = SquatPreview(
+                result_listener=self._handle_pose_result,
+                error_listener=self._handle_pose_error,
+                backend_url_getter=lambda: self.backend_url,
+                should_analyze_getter=lambda: self.set_active and self.camera_running,
+                aspect_ratio="16:9",
+                orientation="portrait",
+            )
+            self._root.preview_box.add_widget(self._preview)
+            return True
+        except Exception as exc:
+            self.status_text = f"Preview init failed: {exc}"
+            self._preview = None
+            return False
 
     def _request_android_permissions(self) -> None:
         try:
