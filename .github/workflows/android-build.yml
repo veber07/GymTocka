@@ -27,11 +27,12 @@ jobs:
 
       - name: Build APK with official Buildozer Docker image
         run: |
+          set -o pipefail
           docker run --rm \
             -v "$HOME/.buildozer":/home/user/.buildozer \
             -v "$PWD":/home/user/hostcwd \
             ghcr.io/kivy/buildozer:latest \
-            android debug
+            android debug 2>&1 | tee buildozer-ci.log
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -39,3 +40,11 @@ jobs:
           name: fitspin-apk
           path: bin/*.apk
           if-no-files-found: error
+
+      - name: Upload build log artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: buildozer-log
+          path: buildozer-ci.log
+          if-no-files-found: warn
