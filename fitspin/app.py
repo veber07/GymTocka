@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import partial
 from pathlib import Path
 import time
 from typing import TYPE_CHECKING
@@ -8,9 +9,11 @@ from urllib.parse import urlparse
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.lang import Builder
+from kivy.metrics import dp
 from kivy.properties import BooleanProperty, ListProperty, NumericProperty, ObjectProperty, StringProperty
 from kivy.storage.jsonstore import JsonStore
 from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.button import Button
 from kivy.uix.label import Label
 from kivy.utils import platform
 
@@ -20,26 +23,90 @@ if TYPE_CHECKING:
     from fitspin.preview import SquatPreview
 
 
+ASSET_DIR = Path(__file__).resolve().parent / "assets"
+
+
+def _asset_path(filename: str) -> str:
+    path = ASSET_DIR / filename
+    return str(path) if path.exists() else ""
+
+
+EXERCISE_CATALOG = (
+    {
+        "key": "squat",
+        "label": "Squat",
+        "title": "SQUAT MODE",
+        "subtitle": "Leg power and depth",
+    },
+    {
+        "key": "pullup",
+        "label": "Pull-up",
+        "title": "PULL-UP MODE",
+        "subtitle": "Bar strength and control",
+    },
+)
+EXERCISE_LOOKUP = {item["key"]: item for item in EXERCISE_CATALOG}
+
+SLOT_SYMBOL_SOURCES = {
+    "bell": _asset_path("symbol_bell.png"),
+    "seven": _asset_path("symbol_seven.png"),
+    "cherry": _asset_path("symbol_cherry.png"),
+    "grapes": _asset_path("symbol_grapes.png"),
+    "lemon": _asset_path("symbol_lemon.png"),
+    "orange": _asset_path("symbol_orange.png"),
+    "plum": _asset_path("symbol_plum.png"),
+    "watermelon": _asset_path("symbol_watermelon.png"),
+}
+SLOT_BACKGROUND_SOURCE = _asset_path("slot_machine_bg.png")
+
+
 KV = """
 #:import dp kivy.metrics.dp
 
 <OverlayCard@BoxLayout>:
     orientation: "vertical"
-    padding: "12dp"
-    spacing: "6dp"
+    padding: "14dp"
+    spacing: "8dp"
     size_hint: None, None
     canvas.before:
         Color:
-            rgba: 0.05, 0.07, 0.08, 0.82
+            rgba: 0.03, 0.04, 0.06, 0.84
         RoundedRectangle:
             pos: self.pos
             size: self.size
-            radius: [18, 18, 18, 18]
+            radius: [22, 22, 22, 22]
         Color:
-            rgba: 0.98, 0.78, 0.18, 0.95
+            rgba: 0.1, 0.15, 0.22, 0.34
+        RoundedRectangle:
+            pos: self.x + dp(2), self.top - self.height * 0.24
+            size: self.width - dp(4), self.height * 0.24
+            radius: [20, 20, 10, 10]
+        Color:
+            rgba: 1.0, 0.82, 0.26, 0.95
         Line:
-            rounded_rectangle: (self.x, self.y, self.width, self.height, 18, 18, 18, 18)
-            width: 1.2
+            rounded_rectangle: (self.x, self.y, self.width, self.height, 22, 22, 22, 22)
+            width: 1.1
+
+<AppButton@Button>:
+    background_normal: ""
+    background_down: ""
+    border: 0, 0, 0, 0
+    bold: True
+    font_size: "15sp"
+    color: 0.04, 0.05, 0.07, 1
+    canvas.before:
+        Color:
+            rgba: self.background_color if self.state == "normal" else (self.background_color[0] * 0.84, self.background_color[1] * 0.84, self.background_color[2] * 0.84, self.background_color[3])
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [16, 16, 16, 16]
+    canvas.after:
+        Color:
+            rgba: 1, 1, 1, 0.08
+        Line:
+            rounded_rectangle: (self.x, self.y, self.width, self.height, 16, 16, 16, 16)
+            width: 1
 
 <FitSpinRoot>:
     orientation: "vertical"
@@ -101,157 +168,240 @@ KV = """
                 text_size: self.size
 
         OverlayCard:
-            size: "226dp", "158dp"
+            size: min(root.width * 0.56, dp(336)), "244dp"
             pos_hint: {"right": 0.97, "top": 0.97}
-            Label:
-                text: "REP SLOT"
-                bold: True
-                color: 1, 1, 1, 1
-                font_size: "18sp"
-                halign: "left"
-                text_size: self.size
-            BoxLayout:
-                size_hint_y: None
-                height: "48dp"
-                spacing: "6dp"
+            FloatLayout:
+                Image:
+                    source: app.slot_background_source
+                    fit_mode: "fill"
+                    opacity: 0.84 + app.slot_glow * 0.12
                 Label:
-                    text: app.slot_symbols[0]
-                    color: 0.98, 0.78, 0.18, 1
-                    font_size: "20sp"
-                    canvas.before:
-                        Color:
-                            rgba: 1, 1, 1, 0.08
-                        RoundedRectangle:
-                            pos: self.pos
-                            size: self.size
-                            radius: [10, 10, 10, 10]
+                    text: "REP SLOT"
+                    pos_hint: {"x": 0.08, "top": 0.96}
+                    size_hint: 0.52, None
+                    height: "28dp"
+                    color: 1, 1, 1, 1
+                    bold: True
+                    font_size: "17sp"
+                    halign: "left"
+                    valign: "middle"
+                    text_size: self.size
                 Label:
-                    text: app.slot_symbols[1]
-                    color: 0.98, 0.78, 0.18, 1
-                    font_size: "20sp"
-                    canvas.before:
-                        Color:
-                            rgba: 1, 1, 1, 0.08
-                        RoundedRectangle:
-                            pos: self.pos
-                            size: self.size
-                            radius: [10, 10, 10, 10]
+                    text: app.slot_hint_text
+                    pos_hint: {"x": 0.08, "top": 0.84}
+                    size_hint: 0.72, None
+                    height: "20dp"
+                    color: 0.72, 0.9, 1, 0.95
+                    font_size: "11sp"
+                    halign: "left"
+                    valign: "middle"
+                    text_size: self.size
+                BoxLayout:
+                    size_hint: 0.68, None
+                    height: "86dp"
+                    pos_hint: {"center_x": 0.49, "top": 0.74}
+                    spacing: "10dp"
+                    FloatLayout:
+                        canvas.before:
+                            Color:
+                                rgba: 0.03, 0.05, 0.08, 0.3 + app.slot_glow * 0.12
+                            RoundedRectangle:
+                                pos: self.pos
+                                size: self.size
+                                radius: [12, 12, 12, 12]
+                        Image:
+                            source: app.slot_image_sources[0]
+                            size_hint: 0.82, 0.82
+                            pos_hint: {"center_x": 0.5, "center_y": 0.5}
+                            fit_mode: "contain"
+                            opacity: 1 if app.slot_image_sources[0] else 0
+                    FloatLayout:
+                        canvas.before:
+                            Color:
+                                rgba: 0.03, 0.05, 0.08, 0.3 + app.slot_glow * 0.12
+                            RoundedRectangle:
+                                pos: self.pos
+                                size: self.size
+                                radius: [12, 12, 12, 12]
+                        Image:
+                            source: app.slot_image_sources[1]
+                            size_hint: 0.82, 0.82
+                            pos_hint: {"center_x": 0.5, "center_y": 0.5}
+                            fit_mode: "contain"
+                            opacity: 1 if app.slot_image_sources[1] else 0
+                    FloatLayout:
+                        canvas.before:
+                            Color:
+                                rgba: 0.03, 0.05, 0.08, 0.3 + app.slot_glow * 0.12
+                            RoundedRectangle:
+                                pos: self.pos
+                                size: self.size
+                                radius: [12, 12, 12, 12]
+                        Image:
+                            source: app.slot_image_sources[2]
+                            size_hint: 0.82, 0.82
+                            pos_hint: {"center_x": 0.5, "center_y": 0.5}
+                            fit_mode: "contain"
+                            opacity: 1 if app.slot_image_sources[2] else 0
                 Label:
-                    text: app.slot_symbols[2]
-                    color: 0.98, 0.78, 0.18, 1
-                    font_size: "20sp"
-                    canvas.before:
-                        Color:
-                            rgba: 1, 1, 1, 0.08
-                        RoundedRectangle:
-                            pos: self.pos
-                            size: self.size
-                            radius: [10, 10, 10, 10]
-            Label:
-                text: app.slot_status
-                color: 1, 1, 1, 1
-                halign: "left"
-                text_size: self.size
-            Label:
-                text: "Coins: " + str(app.coin_score)
-                color: 0.5, 1, 0.72, 1
-                bold: True
-                halign: "left"
-                text_size: self.size
+                    text: app.slot_reward_text
+                    pos_hint: {"x": 0.08, "top": 0.42}
+                    size_hint: 0.55, None
+                    height: "24dp"
+                    color: 1, 0.84, 0.3, 1
+                    bold: True
+                    font_size: "15sp"
+                    halign: "left"
+                    valign: "middle"
+                    text_size: self.size
+                Label:
+                    text: app.slot_combo_text
+                    pos_hint: {"x": 0.08, "top": 0.32}
+                    size_hint: 0.74, None
+                    height: "28dp"
+                    color: 0.94, 0.96, 0.99, 1
+                    font_size: "13sp"
+                    halign: "left"
+                    valign: "middle"
+                    text_size: self.size
+                BoxLayout:
+                    size_hint: 0.72, None
+                    height: "34dp"
+                    pos_hint: {"x": 0.08, "y": 0.08}
+                    spacing: "8dp"
+                    Widget:
+                        size_hint_x: None
+                        width: "28dp"
+                        canvas.before:
+                            Color:
+                                rgba: 0.98, 0.76 + app.coin_flash * 0.18, 0.16, 1
+                            Ellipse:
+                                pos: self.x, self.center_y - dp(13)
+                                size: dp(26), dp(26)
+                            Color:
+                                rgba: 1, 1, 1, 0.18
+                            Line:
+                                ellipse: (self.x + dp(2), self.center_y - dp(11), dp(22), dp(22))
+                    Label:
+                        text: "Coins"
+                        color: 0.76, 0.96, 0.86, 1
+                        font_size: "16sp"
+                        bold: True
+                        halign: "left"
+                        valign: "middle"
+                        text_size: self.size
+                    Label:
+                        text: str(app.coin_score)
+                        color: 1, 0.94, 0.68 + app.coin_flash * 0.18, 1
+                        font_size: "18sp"
+                        bold: True
+                        halign: "right"
+                        valign: "middle"
+                        text_size: self.size
+                Label:
+                    text: app.slot_queue_text
+                    pos_hint: {"right": 0.9, "y": 0.08}
+                    size_hint: 0.25, None
+                    height: "20dp"
+                    color: 0.72, 0.9, 1, 0.92
+                    font_size: "11sp"
+                    halign: "right"
+                    valign: "middle"
+                    text_size: self.size
 
         OverlayCard:
             size_hint: None, None
-            width: min(root.width * 0.92, dp(420))
-            height: "336dp"
+            width: min(root.width * 0.92, dp(446))
+            height: "404dp"
             pos_hint: {"center_x": 0.5, "y": 0.03}
             Label:
                 text: "Backend URL"
                 bold: True
                 color: 1, 1, 1, 1
+                font_size: "18sp"
                 halign: "left"
                 text_size: self.size
             Label:
-                text: "Exercise"
+                text: "Exercise Deck"
                 bold: True
                 color: 1, 1, 1, 1
+                font_size: "17sp"
                 halign: "left"
                 text_size: self.size
-            BoxLayout:
+            Label:
+                text: "All currently supported workout modes appear here."
+                color: 0.76, 0.86, 0.96, 0.95
+                font_size: "12sp"
+                halign: "left"
+                text_size: self.size
+            GridLayout:
+                id: exercise_box
+                cols: 2 if root.width > dp(360) else 1
                 size_hint_y: None
-                height: "42dp"
+                height: self.minimum_height
+                row_default_height: "64dp"
+                row_force_default: True
                 spacing: "8dp"
-                Button:
-                    text: "Squat"
-                    background_normal: ""
-                    background_color: (0.98, 0.78, 0.18, 1) if app.exercise_key == "squat" else (0.18, 0.2, 0.22, 1)
-                    color: (0.04, 0.05, 0.05, 1) if app.exercise_key == "squat" else (1, 1, 1, 1)
-                    on_release: app.select_exercise("squat")
-                Button:
-                    text: "Pull-up"
-                    background_normal: ""
-                    background_color: (0.98, 0.78, 0.18, 1) if app.exercise_key == "pullup" else (0.18, 0.2, 0.22, 1)
-                    color: (0.04, 0.05, 0.05, 1) if app.exercise_key == "pullup" else (1, 1, 1, 1)
-                    on_release: app.select_exercise("pullup")
             TextInput:
                 id: backend_input
                 text: app.backend_url
                 multiline: False
                 size_hint_y: None
-                height: "40dp"
-                foreground_color: 1, 1, 1, 1
-                background_color: 0.1, 0.12, 0.14, 1
+                height: "42dp"
+                foreground_color: 0.96, 0.98, 1, 1
+                background_color: 0.08, 0.1, 0.14, 0.96
                 cursor_color: 1, 1, 1, 1
+                padding: ["10dp", "10dp", "10dp", "10dp"]
                 on_text_validate: app.update_backend_url(self.text)
             BoxLayout:
                 size_hint_y: None
-                height: "42dp"
-                spacing: "8dp"
-                Button:
+                height: "48dp"
+                spacing: "10dp"
+                AppButton:
                     text: "Save URL"
-                    background_normal: ""
-                    background_color: 0.98, 0.78, 0.18, 1
-                    color: 0.04, 0.05, 0.05, 1
+                    background_color: 0.98, 0.79, 0.22, 1
                     on_release: app.update_backend_url(backend_input.text)
-                Button:
+                AppButton:
                     text: "Start Camera" if not app.camera_running else "Stop Camera"
-                    background_normal: ""
-                    background_color: (0.26, 0.87, 0.62, 1) if not app.camera_running else (0.92, 0.36, 0.32, 1)
-                    color: 0.04, 0.05, 0.05, 1
+                    background_color: (0.3, 0.9, 0.65, 1) if not app.camera_running else (0.92, 0.37, 0.34, 1)
                     on_release: app.toggle_camera()
             BoxLayout:
                 size_hint_y: None
-                height: "42dp"
-                spacing: "8dp"
-                Button:
+                height: "48dp"
+                spacing: "10dp"
+                AppButton:
                     text: "End Set" if app.set_active else "Start Set"
-                    background_normal: ""
-                    background_color: (0.92, 0.36, 0.32, 1) if app.set_active else (0.4, 0.73, 0.96, 1)
-                    color: 0.04, 0.05, 0.05, 1
+                    background_color: (0.92, 0.37, 0.34, 1) if app.set_active else (0.42, 0.74, 0.98, 1)
                     on_release: app.toggle_set()
-                Button:
+                AppButton:
                     text: "Reset Counters"
-                    background_normal: ""
-                    background_color: 0.86, 0.86, 0.9, 1
-                    color: 0.04, 0.05, 0.05, 1
+                    background_color: 0.87, 0.87, 0.92, 1
                     on_release: app.reset_session()
             Label:
                 text: app.current_set_summary
-                color: 0.88, 0.9, 0.92, 1
+                color: 0.92, 0.94, 0.98, 1
                 font_size: "12sp"
                 halign: "left"
-                text_size: self.size
+                text_size: self.width, None
+                size_hint_y: None
+                height: self.texture_size[1] + dp(4)
             Label:
                 text: app.last_set_summary
-                color: 0.78, 0.9, 1, 1
+                color: 0.72, 0.9, 1, 1
                 font_size: "12sp"
                 halign: "left"
-                text_size: self.size
+                text_size: self.width, None
+                size_hint_y: None
+                height: self.texture_size[1] + dp(4)
             Label:
                 text: app.status_text
-                color: 0.88, 0.9, 0.92, 1
+                color: 0.92, 0.94, 0.98, 1
                 font_size: "12sp"
                 halign: "left"
-                text_size: self.size
+                valign: "top"
+                text_size: self.width, None
+                size_hint_y: None
+                height: self.texture_size[1] + dp(6)
 """
 
 
@@ -272,11 +422,19 @@ class FitSpinApp(App):
     transport_text = StringProperty("Transport: connecting...")
     status_text = StringProperty("Choose an exercise, set the backend URL, then start the rear camera.")
     backend_url = StringProperty("http://192.168.0.10:8000")
-    slot_symbols = ListProperty(["-", "-", "-"])
+    slot_symbols = ListProperty(["cherry", "lemon", "orange"])
+    slot_image_sources = ListProperty(["", "", ""])
+    slot_reward_text = StringProperty("Warm-up spin")
+    slot_combo_text = StringProperty("Every rep kicks the reels")
+    slot_hint_text = StringProperty("Fruit combo deck")
+    slot_queue_text = StringProperty("")
+    slot_glow = NumericProperty(0.18)
+    coin_flash = NumericProperty(0.08)
     slot_status = StringProperty("1 rep = 1 spin")
     camera_running = BooleanProperty(False)
     set_active = BooleanProperty(False)
     calibration_ready = BooleanProperty(False)
+    slot_background_source = StringProperty(SLOT_BACKGROUND_SOURCE)
     set_duration_text = StringProperty("00:00")
     current_set_summary = StringProperty("Current set: inactive")
     last_set_summary = StringProperty("Last set: no completed set yet")
@@ -299,7 +457,8 @@ class FitSpinApp(App):
             self._root = root
             self._load_settings()
             self._apply_exercise_ui()
-            Clock.schedule_interval(self._tick_slot_machine, 1 / 12)
+            self._sync_slot_machine_ui()
+            Clock.schedule_interval(self._tick_slot_machine, 1 / 18)
             return root
         except Exception as exc:
             self._write_runtime_error(exc)
@@ -351,6 +510,8 @@ class FitSpinApp(App):
         self.current_set_summary = "Current set: inactive"
         self.last_set_summary = f"Last set: no completed {self.exercise_display.lower()} set yet"
         self._last_rep_count = 0
+        self._slot_machine.reset()
+        self._sync_slot_machine_ui()
         if self._preview:
             self._preview.close_stream()
             self._preview.clear_annotations()
@@ -504,14 +665,35 @@ class FitSpinApp(App):
         self.status_text = result.get("status", f"Set started. Hold the {self.exercise_display.lower()} start position for calibration.")
 
     def _sync_slot_machine_ui(self) -> None:
-        self.slot_symbols = list(self._slot_machine.state.reels)
-        self.coin_score = self._slot_machine.state.score
+        state = self._slot_machine.state
+        self.slot_symbols = list(state.reels)
+        self.slot_image_sources = [SLOT_SYMBOL_SOURCES.get(symbol, "") for symbol in state.reels]
+        self.coin_score = state.score
+        self.slot_glow = 0.18 + state.spin_mix * 0.38 + state.celebration * 0.4
+        self.coin_flash = 0.1 + state.celebration * 0.62
+
+        if state.spinning:
+            self.slot_reward_text = "Spinning live"
+            self.slot_combo_text = "Reels locking one by one"
+            self.slot_hint_text = "Arcade payout chain"
+        else:
+            self.slot_reward_text = f"+{state.last_reward} coins" if state.last_reward else "Warm-up spin"
+            self.slot_combo_text = state.last_combo if state.last_combo else "Every rep kicks the reels"
+            self.slot_hint_text = "Fruit combo deck"
+
+        if state.spinning and state.pending_spins:
+            self.slot_queue_text = f"x{state.pending_spins + 1}"
+        elif state.pending_spins:
+            self.slot_queue_text = f"x{state.pending_spins}"
+        else:
+            self.slot_queue_text = ""
+
         self.slot_status = (
             "Spinning..."
-            if self._slot_machine.state.spinning
+            if state.spinning
             else (
-                f"+{self._slot_machine.state.last_reward} coins | {self._slot_machine.state.last_combo}"
-                if self._slot_machine.state.last_combo
+                f"+{state.last_reward} coins | {state.last_combo}"
+                if state.last_reward
                 else f"1 {self.exercise_display.lower()} = 1 spin"
             )
         )
@@ -552,7 +734,7 @@ class FitSpinApp(App):
             self.backend_url = self._settings.get("network").get("backend_url", self.backend_url)
         if self._settings is not None and self._settings.exists("workout"):
             stored = self._settings.get("workout").get("exercise", self.exercise_key)
-            self.exercise_key = "pullup" if stored == "pullup" else "squat"
+            self.exercise_key = stored if stored in EXERCISE_LOOKUP else "squat"
 
     def _init_settings(self) -> None:
         settings_path = Path(self.user_data_dir) / "fitspin_settings.json"
@@ -589,14 +771,52 @@ class FitSpinApp(App):
         return root
 
     def _apply_exercise_ui(self) -> None:
-        if self.exercise_key == "pullup":
-            self.exercise_display = "Pull-up"
-            self.exercise_title = "PULL-UP MODE"
-        else:
-            self.exercise_display = "Squat"
-            self.exercise_title = "SQUAT MODE"
-        if not self._slot_machine.state.spinning:
+        config = EXERCISE_LOOKUP.get(self.exercise_key, EXERCISE_LOOKUP["squat"])
+        self.exercise_key = config["key"]
+        self.exercise_display = config["label"]
+        self.exercise_title = config["title"]
+        self._refresh_exercise_buttons()
+        if not self._slot_machine.state.spinning and not self._slot_machine.state.last_reward:
+            self.slot_reward_text = "Warm-up spin"
+            self.slot_combo_text = "Every rep kicks the reels"
+            self.slot_hint_text = "Fruit combo deck"
             self.slot_status = f"1 {self.exercise_display.lower()} = 1 spin"
+
+    def _refresh_exercise_buttons(self) -> None:
+        if self._root is None:
+            return
+        exercise_box = self._root.ids.get("exercise_box")
+        if exercise_box is None:
+            return
+
+        exercise_box.clear_widgets()
+        for option in EXERCISE_CATALOG:
+            selected = option["key"] == self.exercise_key
+            button = Button(
+                text=f"[b]{option['label']}[/b]\\n[size=12sp]{option['subtitle']}[/size]",
+                markup=True,
+                size_hint_y=None,
+                height=dp(64),
+                background_normal="",
+                background_down="",
+                border=(0, 0, 0, 0),
+                bold=True,
+                font_size="15sp",
+                halign="center",
+                valign="middle",
+                color=(0.04, 0.05, 0.07, 1) if selected else (0.96, 0.98, 1, 1),
+                background_color=(0.98, 0.79, 0.22, 1) if selected else (0.16, 0.2, 0.26, 0.98),
+            )
+            button.bind(size=self._resize_markup_button)
+            button.bind(on_release=partial(self._on_exercise_button, option["key"]))
+            exercise_box.add_widget(button)
+
+    @staticmethod
+    def _resize_markup_button(button: Button, _size) -> None:
+        button.text_size = (button.width - dp(18), button.height - dp(12))
+
+    def _on_exercise_button(self, exercise: str, *_args) -> None:
+        self.select_exercise(exercise)
 
     def _camera_started_text(self) -> str:
         if self.exercise_key == "pullup":
