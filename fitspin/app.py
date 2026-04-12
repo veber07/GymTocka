@@ -10,6 +10,7 @@ from kivy.lang import Builder
 from kivy.properties import BooleanProperty, ListProperty, NumericProperty, ObjectProperty, StringProperty
 from kivy.storage.jsonstore import JsonStore
 from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.label import Label
 
 from fitspin.slot_machine import SlotMachineEngine
 
@@ -280,9 +281,8 @@ class FitSpinApp(App):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._settings_path = Path(self.user_data_dir) / "fitspin_settings.json"
-        self._settings_path.parent.mkdir(parents=True, exist_ok=True)
-        self._settings = JsonStore(str(self._settings_path))
+        self._settings_path: Path | None = None
+        self._settings: JsonStore | None = None
         self._slot_machine = SlotMachineEngine()
         self._root: FitSpinRoot | None = None
         self._preview: SquatPreview | None = None
@@ -290,13 +290,18 @@ class FitSpinApp(App):
         self._set_started_at: float | None = None
 
     def build(self):
-        Builder.load_string(KV)
-        root = FitSpinRoot()
-        self._root = root
-        self._load_settings()
-        self._apply_exercise_ui()
-        Clock.schedule_interval(self._tick_slot_machine, 1 / 12)
-        return root
+        try:
+            self._init_settings()
+            Builder.load_string(KV)
+            root = FitSpinRoot()
+            self._root = root
+            self._load_settings()
+            self._apply_exercise_ui()
+            Clock.schedule_interval(self._tick_slot_machine, 1 / 12)
+            return root
+        except Exception as exc:
+            self._write_runtime_error(exc)
+            return self._build_fallback_ui(exc)
 
     def on_start(self):
         self.status_text = "Choose an exercise, set the backend URL, then start the rear camera."
@@ -311,7 +316,8 @@ class FitSpinApp(App):
             self.status_text = "Backend URL cannot be empty."
             return
         self.backend_url = clean
-        self._settings.put("network", backend_url=self.backend_url)
+        if self._settings is not None:
+            self._settings.put("network", backend_url=self.backend_url)
         self.transport_text = "Transport: reconnecting..."
         if self._preview:
             self._preview.close_stream()
@@ -323,7 +329,8 @@ class FitSpinApp(App):
             return
         previous_display = self.exercise_display
         self.exercise_key = normalized
-        self._settings.put("workout", exercise=self.exercise_key)
+        if self._settings is not None:
+            self._settings.put("workout", exercise=self.exercise_key)
         if self.set_active:
             self._finalize_set(f"{previous_display} set ended.")
         self._apply_exercise_ui()
@@ -521,11 +528,45 @@ class FitSpinApp(App):
         return f"{minutes:02d}:{seconds:02d}"
 
     def _load_settings(self) -> None:
-        if self._settings.exists("network"):
+        if self._settings is not None and self._settings.exists("network"):
             self.backend_url = self._settings.get("network").get("backend_url", self.backend_url)
-        if self._settings.exists("workout"):
+        if self._settings is not None and self._settings.exists("workout"):
             stored = self._settings.get("workout").get("exercise", self.exercise_key)
             self.exercise_key = "pullup" if stored == "pullup" else "squat"
+
+    def _init_settings(self) -> None:
+        settings_path = Path(self.user_data_dir) / "fitspin_settings.json"
+        settings_path.parent.mkdir(parents=True, exist_ok=True)
+        self._settings_path = settings_path
+        try:
+            self._settings = JsonStore(str(settings_path))
+        except Exception:
+            self._settings = None
+
+    def _write_runtime_error(self, exc: Exception) -> None:
+        try:
+            error_dir = Path(self.user_data_dir)
+            error_dir.mkdir(parents=True, exist_ok=True)
+            error_path = error_dir / "fitspin_runtime_error.txt"
+            error_path.write_text(f"{type(exc).__name__}: {exc}", encoding="utf-8")
+        except Exception:
+            pass
+
+    @staticmethod
+    def _build_fallback_ui(exc: Exception) -> BoxLayout:
+        root = BoxLayout(orientation="vertical", padding=24, spacing=12)
+        root.add_widget(
+            Label(
+                text=(
+                    "App startup failed.\n\n"
+                    f"{type(exc).__name__}: {exc}\n\n"
+                    "Please reinstall the latest APK or send this message."
+                ),
+                halign="center",
+                valign="middle",
+            )
+        )
+        return root
 
     def _apply_exercise_ui(self) -> None:
         if self.exercise_key == "pullup":
