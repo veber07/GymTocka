@@ -194,8 +194,8 @@ class SquatCounterState:
 
 
 class SquatCounter:
-    CALIBRATION_FRAMES_REQUIRED = 12
-    STANDING_ANGLE_THRESHOLD = 145.0
+    CALIBRATION_FRAMES_REQUIRED = 8
+    STANDING_ANGLE_THRESHOLD = 140.0
 
     def __init__(self) -> None:
         self.state = SquatCounterState()
@@ -261,8 +261,8 @@ class SquatCounter:
         collected = len(self.state.calibration_samples)
         if collected >= self.CALIBRATION_FRAMES_REQUIRED:
             self.state.top_angle = sum(self.state.calibration_samples) / collected
-            self.state.down_threshold = max(95.0, self.state.top_angle - 60.0)
-            self.state.up_threshold = max(self.state.down_threshold + 18.0, self.state.top_angle - 15.0)
+            self.state.down_threshold = max(100.0, self.state.top_angle - 52.0)
+            self.state.up_threshold = max(self.state.down_threshold + 15.0, self.state.top_angle - 18.0)
             self.state.calibrated = True
             self.state.phase = "up"
             self.state.calibration_samples.clear()

@@ -408,16 +408,24 @@ class FitSpinApp(App):
             self.transport_text = f"Transport: {result['transport_mode']}"
             return
 
+        framing_feedback = result.get("framing_feedback")
+        framing_ok = bool(result.get("framing_ok", False))
+        if isinstance(framing_feedback, str) and framing_feedback:
+            self.framing_text = f"Framing: {framing_feedback}"
+
         if not self.set_active:
+            if self.camera_running:
+                self.status_text = (
+                    "Framing looks good. Tap Start Set, then hold the start position to calibrate."
+                    if framing_ok
+                    else str(framing_feedback or "Align your whole body in the guide before starting.")
+                )
             return
 
         self.calibration_ready = bool(result.get("calibrated", False))
         calibration_progress = int(result.get("calibration_progress", 0))
         calibration_required = int(result.get("calibration_required", 0))
         top_angle = result.get("top_angle")
-        framing_feedback = result.get("framing_feedback")
-        if isinstance(framing_feedback, str) and framing_feedback:
-            self.framing_text = f"Framing: {framing_feedback}"
 
         if self.calibration_ready:
             self.phase_label = result.get("phase", "up")
@@ -597,7 +605,7 @@ class FitSpinApp(App):
                 error_listener=self._handle_pose_error,
                 backend_url_getter=lambda: self.backend_url,
                 exercise_getter=lambda: self.exercise_key,
-                should_analyze_getter=lambda: self.set_active and self.camera_running,
+                should_analyze_getter=lambda: self.camera_running,
                 aspect_ratio="16:9",
                 orientation="portrait",
             )
