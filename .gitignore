@@ -8,3 +8,5 @@ __pycache__/
 *.pyd
 fitspin_settings.json
 buildozer-ci.log
+backend.log
+backend.err.log

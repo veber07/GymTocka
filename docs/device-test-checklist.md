@@ -17,6 +17,7 @@
 3. Make sure the phone and computer are on the same Wi-Fi.
 4. Build and install the APK.
 5. Open the app and enter the computer LAN IP, for example `http://192.168.0.10:8000`.
+6. Do not enter `127.0.0.1` or `localhost` on the phone. That targets the phone, not the backend PC.
 
 ## In-app test flow
 

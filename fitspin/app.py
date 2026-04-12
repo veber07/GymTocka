@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import time
 from typing import TYPE_CHECKING
+from urllib.parse import urlparse
 
 from kivy.app import App
 from kivy.clock import Clock
@@ -11,6 +12,7 @@ from kivy.properties import BooleanProperty, ListProperty, NumericProperty, Obje
 from kivy.storage.jsonstore import JsonStore
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
+from kivy.utils import platform
 
 from fitspin.slot_machine import SlotMachineEngine
 
@@ -305,6 +307,7 @@ class FitSpinApp(App):
 
     def on_start(self):
         self.status_text = "Choose an exercise, set the backend URL, then start the rear camera."
+        self._warn_if_android_loopback()
 
     def on_stop(self):
         if self._preview:
@@ -318,10 +321,14 @@ class FitSpinApp(App):
         self.backend_url = clean
         if self._settings is not None:
             self._settings.put("network", backend_url=self.backend_url)
-        self.transport_text = "Transport: reconnecting..."
+        if self._is_android_loopback_url(clean):
+            self.transport_text = "Transport: unreachable (127.0.0.1 points to the phone)"
+            self.status_text = "Use your computer LAN IP on Android, for example http://192.168.x.x:8000."
+        else:
+            self.transport_text = "Transport: reconnecting..."
+            self.status_text = f"Backend saved: {self.backend_url}"
         if self._preview:
             self._preview.close_stream()
-        self.status_text = f"Backend saved: {self.backend_url}"
 
     def select_exercise(self, exercise: str) -> None:
         normalized = "pullup" if exercise == "pullup" else "squat"
@@ -451,6 +458,11 @@ class FitSpinApp(App):
         self._last_rep_count = self.rep_count
 
     def _handle_pose_error(self, message: str) -> None:
+        if self._is_android_loopback_url(self.backend_url):
+            self.transport_text = "Transport: unreachable (127.0.0.1 points to the phone)"
+            self.status_text = "Backend unreachable on Android. Use your computer LAN IP instead of 127.0.0.1."
+            return
+        self.transport_text = "Transport: disconnected"
         self.status_text = message
 
     def _tick_slot_machine(self, dt: float) -> None:
@@ -626,3 +638,15 @@ class FitSpinApp(App):
             lambda dt: request_permissions([Permission.CAMERA]),
             0,
         )
+
+    def _warn_if_android_loopback(self) -> None:
+        if self._is_android_loopback_url(self.backend_url):
+            self.transport_text = "Transport: unreachable (127.0.0.1 points to the phone)"
+            self.status_text = "Use your computer LAN IP on Android, not localhost or 127.0.0.1."
+
+    @staticmethod
+    def _is_android_loopback_url(url: str) -> bool:
+        if platform != "android":
+            return False
+        hostname = (urlparse(url).hostname or "").strip().lower()
+        return hostname in {"127.0.0.1", "localhost", "::1"}

@@ -73,6 +73,9 @@ The phone should use your computer's LAN IP, for example:
 http://192.168.0.10:8000
 ```
 
+Do not use `http://127.0.0.1:8000` or `http://localhost:8000` on the phone.
+On Android, those addresses point back to the phone itself, not to your computer.
+
 ## Android app setup
 
 Buildozer is most reliable on Linux or WSL2, not native Windows.
@@ -94,6 +97,7 @@ buildozer android debug
 5. Install the APK on the phone.
 6. Open the app.
 7. Set `Backend URL` to your server IP, for example `http://192.168.0.10:8000`.
+   Never use `127.0.0.1` or `localhost` there unless the backend is running on the phone itself.
 8. Start the camera and place the phone so the whole body is visible.
 
 Useful Buildozer commands:
