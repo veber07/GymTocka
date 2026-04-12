@@ -50,7 +50,7 @@ KV = """
             size: "182dp", "198dp"
             pos_hint: {"x": 0.03, "top": 0.97}
             Label:
-                text: "SQUAT MODE"
+                text: app.exercise_title
                 bold: True
                 color: 1, 1, 1, 1
                 font_size: "18sp"
@@ -159,7 +159,7 @@ KV = """
         OverlayCard:
             size_hint: None, None
             width: min(root.width * 0.92, dp(420))
-            height: "286dp"
+            height: "336dp"
             pos_hint: {"center_x": 0.5, "y": 0.03}
             Label:
                 text: "Backend URL"
@@ -167,6 +167,28 @@ KV = """
                 color: 1, 1, 1, 1
                 halign: "left"
                 text_size: self.size
+            Label:
+                text: "Exercise"
+                bold: True
+                color: 1, 1, 1, 1
+                halign: "left"
+                text_size: self.size
+            BoxLayout:
+                size_hint_y: None
+                height: "42dp"
+                spacing: "8dp"
+                Button:
+                    text: "Squat"
+                    background_normal: ""
+                    background_color: (0.98, 0.78, 0.18, 1) if app.exercise_key == "squat" else (0.18, 0.2, 0.22, 1)
+                    color: (0.04, 0.05, 0.05, 1) if app.exercise_key == "squat" else (1, 1, 1, 1)
+                    on_release: app.select_exercise("squat")
+                Button:
+                    text: "Pull-up"
+                    background_normal: ""
+                    background_color: (0.98, 0.78, 0.18, 1) if app.exercise_key == "pullup" else (0.18, 0.2, 0.22, 1)
+                    color: (0.04, 0.05, 0.05, 1) if app.exercise_key == "pullup" else (1, 1, 1, 1)
+                    on_release: app.select_exercise("pullup")
             TextInput:
                 id: backend_input
                 text: app.backend_url
@@ -237,15 +259,18 @@ class FitSpinRoot(BoxLayout):
 class FitSpinApp(App):
     rep_count = NumericProperty(0)
     coin_score = NumericProperty(0)
+    exercise_key = StringProperty("squat")
+    exercise_display = StringProperty("Squat")
+    exercise_title = StringProperty("SQUAT MODE")
     phase_label = StringProperty("waiting")
     debug_metric = StringProperty("angle: --")
     calibration_text = StringProperty("Calibration: pending")
     framing_text = StringProperty("Framing: align your whole body in the guide.")
     transport_text = StringProperty("Transport: connecting...")
-    status_text = StringProperty("Set the backend URL, then start the rear camera.")
+    status_text = StringProperty("Choose an exercise, set the backend URL, then start the rear camera.")
     backend_url = StringProperty("http://192.168.0.10:8000")
     slot_symbols = ListProperty(["-", "-", "-"])
-    slot_status = StringProperty("1 squat = 1 spin")
+    slot_status = StringProperty("1 rep = 1 spin")
     camera_running = BooleanProperty(False)
     set_active = BooleanProperty(False)
     calibration_ready = BooleanProperty(False)
@@ -255,7 +280,8 @@ class FitSpinApp(App):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._settings_path = Path("fitspin_settings.json")
+        self._settings_path = Path(self.user_data_dir) / "fitspin_settings.json"
+        self._settings_path.parent.mkdir(parents=True, exist_ok=True)
         self._settings = JsonStore(str(self._settings_path))
         self._slot_machine = SlotMachineEngine()
         self._root: FitSpinRoot | None = None
@@ -268,11 +294,12 @@ class FitSpinApp(App):
         root = FitSpinRoot()
         self._root = root
         self._load_settings()
+        self._apply_exercise_ui()
         Clock.schedule_interval(self._tick_slot_machine, 1 / 12)
         return root
 
     def on_start(self):
-        self._request_android_permissions()
+        self.status_text = "Choose an exercise, set the backend URL, then start the rear camera."
 
     def on_stop(self):
         if self._preview:
@@ -290,6 +317,31 @@ class FitSpinApp(App):
             self._preview.close_stream()
         self.status_text = f"Backend saved: {self.backend_url}"
 
+    def select_exercise(self, exercise: str) -> None:
+        normalized = "pullup" if exercise == "pullup" else "squat"
+        if self.exercise_key == normalized:
+            return
+        previous_display = self.exercise_display
+        self.exercise_key = normalized
+        self._settings.put("workout", exercise=self.exercise_key)
+        if self.set_active:
+            self._finalize_set(f"{previous_display} set ended.")
+        self._apply_exercise_ui()
+        self.rep_count = 0
+        self.phase_label = "waiting"
+        self.debug_metric = "angle: --"
+        self.calibration_ready = False
+        self.calibration_text = "Calibration: pending"
+        self.framing_text = "Framing: align your whole body in the guide."
+        self.transport_text = "Transport: connecting..."
+        self.current_set_summary = "Current set: inactive"
+        self.last_set_summary = f"Last set: no completed {self.exercise_display.lower()} set yet"
+        self._last_rep_count = 0
+        if self._preview:
+            self._preview.close_stream()
+            self._preview.clear_annotations()
+        self.status_text = f"Exercise selected: {self.exercise_display}. Start a new set when ready."
+
     def toggle_camera(self) -> None:
         if self.camera_running:
             if self.set_active:
@@ -300,9 +352,10 @@ class FitSpinApp(App):
             return
         if not self._ensure_preview():
             return
+        self._request_android_permissions()
         self._preview.connect_rear_camera()
         self.camera_running = True
-        self.status_text = "Camera started. Place the phone so your full body is visible, then tap Start Set."
+        self.status_text = self._camera_started_text()
 
     def reset_session(self) -> None:
         if not self._preview:
@@ -315,7 +368,7 @@ class FitSpinApp(App):
         self.calibration_text = "Calibration: pending"
         self.framing_text = "Framing: align your whole body in the guide."
         self.transport_text = "Transport: connecting..."
-        self.status_text = "Resetting squat session..."
+        self.status_text = f"Resetting {self.exercise_display.lower()} session..."
         self._preview.clear_annotations()
         self._preview.reset_session(self._handle_reset_result)
 
@@ -339,7 +392,7 @@ class FitSpinApp(App):
         self.calibration_text = "Calibration: pending"
         self.framing_text = "Framing: align your whole body in the guide."
         self.transport_text = "Transport: connecting..."
-        self.status_text = "Starting a new set..."
+        self.status_text = f"Starting a new {self.exercise_display.lower()} set..."
         self._preview.clear_annotations()
         self._preview.reset_session(self._handle_start_set_result)
 
@@ -371,8 +424,9 @@ class FitSpinApp(App):
 
         self.rep_count = int(result.get("rep_count", 0))
 
-        angle = result.get("squat_angle")
-        self.debug_metric = f"angle: {angle:.1f}" if isinstance(angle, (int, float)) else "angle: --"
+        metric_label = str(result.get("metric_label", "angle")).strip().lower()
+        angle = result.get("primary_angle", result.get("squat_angle"))
+        self.debug_metric = f"{metric_label}: {angle:.1f}" if isinstance(angle, (int, float)) else f"{metric_label}: --"
 
         status = result.get("status") or "Tracking..."
         self.status_text = status
@@ -418,9 +472,9 @@ class FitSpinApp(App):
         self.set_active = True
         self._set_started_at = time.monotonic()
         self.set_duration_text = "00:00"
-        self.current_set_summary = "Current set: calibrating | 0 reps | 0 coins | 00:00"
+        self.current_set_summary = f"Current set: {self.exercise_display.lower()} | calibrating | 0 reps | 0 coins | 00:00"
         self._sync_slot_machine_ui()
-        self.status_text = "Set started. Stand tall for calibration."
+        self.status_text = result.get("status", f"Set started. Hold the {self.exercise_display.lower()} start position for calibration.")
 
     def _sync_slot_machine_ui(self) -> None:
         self.slot_symbols = list(self._slot_machine.state.reels)
@@ -428,12 +482,16 @@ class FitSpinApp(App):
         self.slot_status = (
             "Spinning..."
             if self._slot_machine.state.spinning
-            else f"+{self._slot_machine.state.last_reward} coins | {self._slot_machine.state.last_combo}"
+            else (
+                f"+{self._slot_machine.state.last_reward} coins | {self._slot_machine.state.last_combo}"
+                if self._slot_machine.state.last_combo
+                else f"1 {self.exercise_display.lower()} = 1 spin"
+            )
         )
         if self.set_active:
             set_mode = "live" if self.calibration_ready else "calibrating"
             self.current_set_summary = (
-                f"Current set: {set_mode} | {self.rep_count} reps | {self.coin_score} coins | {self.set_duration_text}"
+                f"Current set: {self.exercise_display.lower()} | {set_mode} | {self.rep_count} reps | {self.coin_score} coins | {self.set_duration_text}"
             )
 
     def _finalize_set(self, status_text: str) -> None:
@@ -452,7 +510,7 @@ class FitSpinApp(App):
         self.calibration_text = "Calibration: pending"
         self.framing_text = "Framing: align your whole body in the guide."
         self.current_set_summary = "Current set: inactive"
-        self.last_set_summary = f"Last set: {self.rep_count} reps | {self.coin_score} coins | {duration_text}"
+        self.last_set_summary = f"Last set ({self.exercise_display}): {self.rep_count} reps | {self.coin_score} coins | {duration_text}"
         if self._preview:
             self._preview.clear_annotations()
         self.status_text = status_text
@@ -465,6 +523,24 @@ class FitSpinApp(App):
     def _load_settings(self) -> None:
         if self._settings.exists("network"):
             self.backend_url = self._settings.get("network").get("backend_url", self.backend_url)
+        if self._settings.exists("workout"):
+            stored = self._settings.get("workout").get("exercise", self.exercise_key)
+            self.exercise_key = "pullup" if stored == "pullup" else "squat"
+
+    def _apply_exercise_ui(self) -> None:
+        if self.exercise_key == "pullup":
+            self.exercise_display = "Pull-up"
+            self.exercise_title = "PULL-UP MODE"
+        else:
+            self.exercise_display = "Squat"
+            self.exercise_title = "SQUAT MODE"
+        if not self._slot_machine.state.spinning:
+            self.slot_status = f"1 {self.exercise_display.lower()} = 1 spin"
+
+    def _camera_started_text(self) -> str:
+        if self.exercise_key == "pullup":
+            return "Camera started. Step under the bar, show your full body and both hands, then tap Start Set."
+        return "Camera started. Place the phone so your full body is visible, then tap Start Set."
 
     def _ensure_preview(self) -> bool:
         if self._preview is not None:
@@ -479,6 +555,7 @@ class FitSpinApp(App):
                 result_listener=self._handle_pose_result,
                 error_listener=self._handle_pose_error,
                 backend_url_getter=lambda: self.backend_url,
+                exercise_getter=lambda: self.exercise_key,
                 should_analyze_getter=lambda: self.set_active and self.camera_running,
                 aspect_ratio="16:9",
                 orientation="portrait",
@@ -498,5 +575,5 @@ class FitSpinApp(App):
 
         Clock.schedule_once(
             lambda dt: request_permissions([Permission.CAMERA]),
-            0.2,
+            0,
         )

@@ -23,31 +23,45 @@ def main() -> None:
     assert health.status_code == 200, health.text
     assert health.json()["status"] == "ok"
 
-    reset = client.post("/api/v1/squat/reset", json={"session_id": "smoke"})
-    assert reset.status_code == 200, reset.text
-    assert reset.json()["rep_count"] == 0
+    for exercise in ("squat", "pullup"):
+        reset = client.post(
+            "/api/v1/exercise/reset",
+            json={"exercise": exercise, "session_id": f"smoke-{exercise}"},
+        )
+        assert reset.status_code == 200, reset.text
+        reset_json = reset.json()
+        assert reset_json["rep_count"] == 0
+        assert reset_json["exercise"] == exercise
 
-    analyze = client.post(
-        "/api/v1/squat/analyze",
-        json={
-            "session_id": "smoke",
-            "image_b64": blank_image_b64(),
-        },
-    )
-    assert analyze.status_code == 200, analyze.text
-    analyze_json = analyze.json()
-    assert "rep_count" in analyze_json
-    assert "status" in analyze_json
-    assert "framing_feedback" in analyze_json
+        analyze = client.post(
+            "/api/v1/exercise/analyze",
+            json={
+                "exercise": exercise,
+                "session_id": f"smoke-{exercise}",
+                "image_b64": blank_image_b64(),
+            },
+        )
+        assert analyze.status_code == 200, analyze.text
+        analyze_json = analyze.json()
+        assert "rep_count" in analyze_json
+        assert "status" in analyze_json
+        assert "framing_feedback" in analyze_json
+        assert analyze_json["exercise"] == exercise
 
-    with client.websocket_connect("/ws/squat") as websocket:
-        websocket.send_json({"action": "reset", "session_id": "smoke-ws"})
+    legacy_reset = client.post("/api/v1/squat/reset", json={"session_id": "smoke-legacy"})
+    assert legacy_reset.status_code == 200, legacy_reset.text
+    assert legacy_reset.json()["exercise"] == "squat"
+
+    with client.websocket_connect("/ws/exercise") as websocket:
+        websocket.send_json({"action": "reset", "exercise": "pullup", "session_id": "smoke-ws"})
         reset_result = websocket.receive_json()
         assert reset_result["rep_count"] == 0
+        assert reset_result["exercise"] == "pullup"
 
         websocket.send_json(
             {
                 "action": "analyze",
+                "exercise": "pullup",
                 "session_id": "smoke-ws",
                 "image_b64": blank_image_b64(),
             }
@@ -55,6 +69,7 @@ def main() -> None:
         ws_result = websocket.receive_json()
         assert "status" in ws_result
         assert "framing_feedback" in ws_result
+        assert ws_result["exercise"] == "pullup"
 
     print("Smoke test passed.")
 

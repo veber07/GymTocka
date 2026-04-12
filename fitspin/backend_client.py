@@ -40,6 +40,7 @@ class PoseBackendClient:
     def submit_frame(
         self,
         backend_url: str,
+        exercise: str,
         session_id: str,
         rgba_pixels: bytes,
         image_size: tuple[int, int],
@@ -67,13 +68,14 @@ class PoseBackendClient:
         }
         threading.Thread(
             target=self._submit_worker,
-            args=(backend_url, session_id, rgba_pixels, image_size, context),
+            args=(backend_url, exercise, session_id, rgba_pixels, image_size, context),
             daemon=True,
         ).start()
 
     def reset_session(
         self,
         backend_url: str,
+        exercise: str,
         session_id: str,
         on_success: Callable[[dict[str, Any]], None],
     ) -> None:
@@ -89,7 +91,7 @@ class PoseBackendClient:
 
         threading.Thread(
             target=self._reset_session_worker,
-            args=(backend_url, session_id, on_success),
+            args=(backend_url, exercise, session_id, on_success),
             daemon=True,
         ).start()
 
@@ -110,6 +112,7 @@ class PoseBackendClient:
     def _submit_worker(
         self,
         backend_url: str,
+        exercise: str,
         session_id: str,
         rgba_pixels: bytes,
         image_size: tuple[int, int],
@@ -120,6 +123,7 @@ class PoseBackendClient:
             image_b64 = self._encode_image(rgba_pixels, image_size)
             payload = {
                 "action": "analyze",
+                "exercise": exercise,
                 "session_id": session_id,
                 "image_b64": image_b64,
             }
@@ -156,14 +160,15 @@ class PoseBackendClient:
     def _reset_session_worker(
         self,
         backend_url: str,
+        exercise: str,
         session_id: str,
         on_success: Callable[[dict[str, Any]], None],
     ) -> None:
         error_message = None
         try:
             request = urllib.request.Request(
-                url=f"{backend_url}/api/v1/squat/reset",
-                data=json.dumps({"session_id": session_id}).encode("utf-8"),
+                url=f"{backend_url}/api/v1/exercise/reset",
+                data=json.dumps({"exercise": exercise, "session_id": session_id}).encode("utf-8"),
                 headers={"Content-Type": "application/json"},
                 method="POST",
             )
@@ -197,9 +202,10 @@ class PoseBackendClient:
 
     def _send_via_http(self, backend_url: str, payload: dict[str, Any]) -> dict[str, Any]:
         request = urllib.request.Request(
-            url=f"{backend_url}/api/v1/squat/analyze",
+            url=f"{backend_url}/api/v1/exercise/analyze",
             data=json.dumps(
                 {
+                    "exercise": payload["exercise"],
                     "session_id": payload["session_id"],
                     "image_b64": payload["image_b64"],
                 }
@@ -251,10 +257,10 @@ class PoseBackendClient:
     @staticmethod
     def _to_ws_url(backend_url: str) -> str:
         if backend_url.startswith("https://"):
-            return "wss://" + backend_url[len("https://") :].rstrip("/") + "/ws/squat"
+            return "wss://" + backend_url[len("https://") :].rstrip("/") + "/ws/exercise"
         if backend_url.startswith("http://"):
-            return "ws://" + backend_url[len("http://") :].rstrip("/") + "/ws/squat"
-        return backend_url.rstrip("/") + "/ws/squat"
+            return "ws://" + backend_url[len("http://") :].rstrip("/") + "/ws/exercise"
+        return backend_url.rstrip("/") + "/ws/exercise"
 
     @staticmethod
     def _encode_image(rgba_pixels: bytes, image_size: tuple[int, int]) -> str:

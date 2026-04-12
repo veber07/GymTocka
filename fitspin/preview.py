@@ -34,6 +34,7 @@ class SquatPreview(Preview):
         result_listener: Callable[[dict[str, Any]], None],
         error_listener: Callable[[str], None],
         backend_url_getter: Callable[[], str],
+        exercise_getter: Callable[[], str],
         should_analyze_getter: Callable[[], bool],
         **kwargs: Any,
     ) -> None:
@@ -41,6 +42,7 @@ class SquatPreview(Preview):
         self._result_listener = result_listener
         self._error_listener = error_listener
         self._backend_url_getter = backend_url_getter
+        self._exercise_getter = exercise_getter
         self._should_analyze_getter = should_analyze_getter
         self._backend_client = PoseBackendClient(
             on_result=self._handle_backend_result,
@@ -79,6 +81,7 @@ class SquatPreview(Preview):
         self._set_annotations([])
         self._backend_client.reset_session(
             backend_url=self._backend_url_getter(),
+            exercise=self._exercise_getter(),
             session_id=self._session_id,
             on_success=on_success,
         )
@@ -102,6 +105,7 @@ class SquatPreview(Preview):
         backend_url = self._backend_url_getter()
         self._backend_client.submit_frame(
             backend_url=backend_url,
+            exercise=self._exercise_getter(),
             session_id=self._session_id,
             rgba_pixels=pixels,
             image_size=image_size,
