@@ -7,7 +7,7 @@ source.include_exts = py,kv,png,jpg,jpeg,json,txt,md
 source.exclude_dirs = server,__pycache__,.git,.venv,venv,.buildozer,bin
 source.exclude_patterns = server/*,__pycache__/*,.git/*,.venv/*,venv/*,.buildozer/*,bin/*
 version = 0.1.0
-requirements = python3,kivy==2.3.1,camera4kivy,gestures4kivy,pillow,websocket-client
+requirements = python3,kivy==2.3.1,requests,filetype,camera4kivy,gestures4kivy,pillow,websocket-client
 orientation = portrait
 fullscreen = 0
 android.entrypoint = org.kivy.android.PythonActivity
