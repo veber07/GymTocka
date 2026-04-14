@@ -14,7 +14,10 @@ from kivy.properties import BooleanProperty, ListProperty, NumericProperty, Obje
 from kivy.storage.jsonstore import JsonStore
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
+from kivy.uix.gridlayout import GridLayout
 from kivy.uix.label import Label
+from kivy.uix.popup import Popup
+from kivy.uix.scrollview import ScrollView
 from kivy.utils import platform
 
 from fitspin.slot_machine import SlotMachineEngine
@@ -74,6 +77,12 @@ SLOT_BACKGROUND_SOURCE = _asset_path("slot_machine_bg.png")
 
 KV = """
 #:import dp kivy.metrics.dp
+#:set THEME_RED (0.82, 0.12, 0.16, 1)
+#:set THEME_RED_DEEP (0.60, 0.07, 0.10, 1)
+#:set THEME_RED_SOFT (0.96, 0.84, 0.86, 1)
+#:set THEME_WHITE (0.99, 0.99, 1.00, 0.94)
+#:set THEME_TEXT (0.14, 0.09, 0.10, 1)
+#:set THEME_TEXT_MUTED (0.42, 0.20, 0.22, 1)
 
 <OverlayCard@BoxLayout>:
     orientation: "vertical"
@@ -82,22 +91,28 @@ KV = """
     size_hint: None, None
     canvas.before:
         Color:
-            rgba: 0.03, 0.04, 0.06, 0.84
+            rgba: THEME_WHITE
         RoundedRectangle:
             pos: self.pos
             size: self.size
             radius: [22, 22, 22, 22]
         Color:
-            rgba: 0.1, 0.15, 0.22, 0.34
+            rgba: 1, 1, 1, 0.9
         RoundedRectangle:
             pos: self.x + dp(2), self.top - self.height * 0.24
             size: self.width - dp(4), self.height * 0.24
             radius: [20, 20, 10, 10]
         Color:
-            rgba: 1.0, 0.82, 0.26, 0.95
+            rgba: THEME_RED
         Line:
             rounded_rectangle: (self.x, self.y, self.width, self.height, 22, 22, 22, 22)
-            width: 1.1
+            width: 1.3
+        Color:
+            rgba: 0.64, 0.08, 0.11, 0.14
+        RoundedRectangle:
+            pos: self.x + dp(6), self.y - dp(3)
+            size: self.width - dp(12), self.height
+            radius: [20, 20, 20, 20]
 
 <AppButton@Button>:
     background_normal: ""
@@ -105,17 +120,17 @@ KV = """
     border: 0, 0, 0, 0
     bold: True
     font_size: "15sp"
-    color: 0.04, 0.05, 0.07, 1
+    color: 1, 1, 1, 1
     canvas.before:
         Color:
-            rgba: self.background_color if self.state == "normal" else (self.background_color[0] * 0.84, self.background_color[1] * 0.84, self.background_color[2] * 0.84, self.background_color[3])
+            rgba: self.background_color if self.state == "normal" else (self.background_color[0] * 0.88, self.background_color[1] * 0.88, self.background_color[2] * 0.88, self.background_color[3])
         RoundedRectangle:
             pos: self.pos
             size: self.size
             radius: [16, 16, 16, 16]
     canvas.after:
         Color:
-            rgba: 1, 1, 1, 0.08
+            rgba: THEME_RED_DEEP[0], THEME_RED_DEEP[1], THEME_RED_DEEP[2], 0.16
         Line:
             rounded_rectangle: (self.x, self.y, self.width, self.height, 16, 16, 16, 16)
             width: 1
@@ -134,47 +149,47 @@ KV = """
             Label:
                 text: app.exercise_title
                 bold: True
-                color: 1, 1, 1, 1
+                color: THEME_RED_DEEP
                 font_size: "18sp"
                 halign: "left"
                 text_size: self.size
             Label:
                 text: "Reps: " + str(app.rep_count)
-                color: 1, 1, 1, 1
+                color: THEME_TEXT
                 halign: "left"
                 text_size: self.size
             Label:
                 text: "Phase: " + app.phase_label
-                color: 0.78, 0.9, 1, 1
+                color: THEME_RED
                 halign: "left"
                 text_size: self.size
             Label:
                 text: app.debug_metric
-                color: 0.8, 0.82, 0.85, 1
+                color: THEME_TEXT_MUTED
                 font_size: "12sp"
                 halign: "left"
                 text_size: self.size
             Label:
                 text: app.calibration_text
-                color: (0.5, 1, 0.72, 1) if app.calibration_ready else (0.98, 0.78, 0.18, 1)
+                color: (0.16, 0.60, 0.26, 1) if app.calibration_ready else THEME_RED
                 font_size: "12sp"
                 halign: "left"
                 text_size: self.size
             Label:
                 text: app.framing_text
-                color: 0.88, 0.9, 0.92, 1
+                color: THEME_TEXT_MUTED
                 font_size: "12sp"
                 halign: "left"
                 text_size: self.size
             Label:
                 text: app.transport_text
-                color: 0.88, 0.9, 0.92, 1
+                color: THEME_TEXT_MUTED
                 font_size: "12sp"
                 halign: "left"
                 text_size: self.size
             Label:
                 text: "Set: " + ("LIVE " + app.set_duration_text if app.calibration_ready else "CAL " + app.set_duration_text if app.set_active else "idle")
-                color: (0.5, 1, 0.72, 1) if app.set_active else (0.88, 0.9, 0.92, 1)
+                color: (0.16, 0.60, 0.26, 1) if app.set_active else THEME_TEXT_MUTED
                 font_size: "12sp"
                 halign: "left"
                 text_size: self.size
@@ -186,13 +201,13 @@ KV = """
                 Image:
                     source: app.slot_background_source
                     fit_mode: "fill"
-                    opacity: 0.84 + app.slot_glow * 0.12
+                    opacity: 0.34 + app.slot_glow * 0.1
                 Label:
                     text: "REP SLOT"
                     pos_hint: {"x": 0.08, "top": 0.96}
                     size_hint: 0.52, None
                     height: "28dp"
-                    color: 1, 1, 1, 1
+                    color: THEME_RED_DEEP
                     bold: True
                     font_size: "17sp"
                     halign: "left"
@@ -203,7 +218,7 @@ KV = """
                     pos_hint: {"x": 0.08, "top": 0.84}
                     size_hint: 0.72, None
                     height: "20dp"
-                    color: 0.72, 0.9, 1, 0.95
+                    color: THEME_TEXT_MUTED
                     font_size: "11sp"
                     halign: "left"
                     valign: "middle"
@@ -216,7 +231,7 @@ KV = """
                     FloatLayout:
                         canvas.before:
                             Color:
-                                rgba: 0.03, 0.05, 0.08, 0.3 + app.slot_glow * 0.12
+                                rgba: THEME_RED_SOFT[0], THEME_RED_SOFT[1], THEME_RED_SOFT[2], 0.42 + app.slot_glow * 0.08
                             RoundedRectangle:
                                 pos: self.pos
                                 size: self.size
@@ -230,7 +245,7 @@ KV = """
                     FloatLayout:
                         canvas.before:
                             Color:
-                                rgba: 0.03, 0.05, 0.08, 0.3 + app.slot_glow * 0.12
+                                rgba: THEME_RED_SOFT[0], THEME_RED_SOFT[1], THEME_RED_SOFT[2], 0.42 + app.slot_glow * 0.08
                             RoundedRectangle:
                                 pos: self.pos
                                 size: self.size
@@ -244,7 +259,7 @@ KV = """
                     FloatLayout:
                         canvas.before:
                             Color:
-                                rgba: 0.03, 0.05, 0.08, 0.3 + app.slot_glow * 0.12
+                                rgba: THEME_RED_SOFT[0], THEME_RED_SOFT[1], THEME_RED_SOFT[2], 0.42 + app.slot_glow * 0.08
                             RoundedRectangle:
                                 pos: self.pos
                                 size: self.size
@@ -260,7 +275,7 @@ KV = """
                     pos_hint: {"x": 0.08, "top": 0.42}
                     size_hint: 0.55, None
                     height: "24dp"
-                    color: 1, 0.84, 0.3, 1
+                    color: THEME_RED
                     bold: True
                     font_size: "15sp"
                     halign: "left"
@@ -271,7 +286,7 @@ KV = """
                     pos_hint: {"x": 0.08, "top": 0.32}
                     size_hint: 0.74, None
                     height: "28dp"
-                    color: 0.94, 0.96, 0.99, 1
+                    color: THEME_TEXT
                     font_size: "13sp"
                     halign: "left"
                     valign: "middle"
@@ -286,17 +301,17 @@ KV = """
                         width: "28dp"
                         canvas.before:
                             Color:
-                                rgba: 0.98, 0.76 + app.coin_flash * 0.18, 0.16, 1
+                                rgba: THEME_RED[0], THEME_RED[1] + app.coin_flash * 0.05, THEME_RED[2] + app.coin_flash * 0.03, 1
                             Ellipse:
                                 pos: self.x, self.center_y - dp(13)
                                 size: dp(26), dp(26)
                             Color:
-                                rgba: 1, 1, 1, 0.18
+                                rgba: 1, 1, 1, 0.38
                             Line:
                                 ellipse: (self.x + dp(2), self.center_y - dp(11), dp(22), dp(22))
                     Label:
                         text: "Coins"
-                        color: 0.76, 0.96, 0.86, 1
+                        color: THEME_RED_DEEP
                         font_size: "16sp"
                         bold: True
                         halign: "left"
@@ -304,7 +319,7 @@ KV = """
                         text_size: self.size
                     Label:
                         text: str(app.coin_score)
-                        color: 1, 0.94, 0.68 + app.coin_flash * 0.18, 1
+                        color: THEME_RED
                         font_size: "18sp"
                         bold: True
                         halign: "right"
@@ -315,7 +330,7 @@ KV = """
                     pos_hint: {"right": 0.9, "y": 0.08}
                     size_hint: 0.25, None
                     height: "20dp"
-                    color: 0.72, 0.9, 1, 0.92
+                    color: THEME_TEXT_MUTED
                     font_size: "11sp"
                     halign: "right"
                     valign: "middle"
@@ -324,45 +339,62 @@ KV = """
         OverlayCard:
             size_hint: None, None
             width: min(root.width * 0.92, dp(446))
-            height: "488dp"
+            height: "452dp"
             pos_hint: {"center_x": 0.5, "y": 0.03}
             Label:
                 text: "Backend URL"
                 bold: True
-                color: 1, 1, 1, 1
+                color: THEME_RED_DEEP
                 font_size: "18sp"
                 halign: "left"
                 text_size: self.size
             Label:
-                text: "Exercise Deck"
+                text: "Exercise"
                 bold: True
-                color: 1, 1, 1, 1
+                color: THEME_RED_DEEP
                 font_size: "17sp"
                 halign: "left"
                 text_size: self.size
             Label:
-                text: "All currently supported workout modes appear here."
-                color: 0.76, 0.86, 0.96, 0.95
+                text: "Current: " + app.exercise_display + " | tap to switch modes"
+                color: THEME_TEXT_MUTED
                 font_size: "12sp"
                 halign: "left"
                 text_size: self.size
-            GridLayout:
-                id: exercise_box
-                cols: 2 if root.width > dp(360) else 1
+            AppButton:
+                text: "Choose Exercise"
                 size_hint_y: None
-                height: self.minimum_height
-                row_default_height: "64dp"
-                row_force_default: True
-                spacing: "8dp"
+                height: "48dp"
+                background_color: THEME_RED
+                on_release: app.open_exercise_picker()
+            Label:
+                text: "Camera"
+                bold: True
+                color: THEME_RED_DEEP
+                font_size: "17sp"
+                halign: "left"
+                text_size: self.size
+            Label:
+                text: "Current: " + app.camera_facing_label
+                color: THEME_TEXT_MUTED
+                font_size: "12sp"
+                halign: "left"
+                text_size: self.size
+            AppButton:
+                text: "Use Selfie Camera" if app.camera_facing == "rear" else "Use Rear Camera"
+                size_hint_y: None
+                height: "48dp"
+                background_color: THEME_RED_DEEP
+                on_release: app.toggle_camera_facing()
             TextInput:
                 id: backend_input
                 text: app.backend_url
                 multiline: False
                 size_hint_y: None
                 height: "42dp"
-                foreground_color: 0.96, 0.98, 1, 1
-                background_color: 0.08, 0.1, 0.14, 0.96
-                cursor_color: 1, 1, 1, 1
+                foreground_color: THEME_TEXT
+                background_color: 1, 1, 1, 0.98
+                cursor_color: THEME_RED
                 padding: ["10dp", "10dp", "10dp", "10dp"]
                 on_text_validate: app.update_backend_url(self.text)
             BoxLayout:
@@ -371,11 +403,11 @@ KV = """
                 spacing: "10dp"
                 AppButton:
                     text: "Save URL"
-                    background_color: 0.98, 0.79, 0.22, 1
+                    background_color: THEME_RED
                     on_release: app.update_backend_url(backend_input.text)
                 AppButton:
                     text: "Start Camera" if not app.camera_running else "Stop Camera"
-                    background_color: (0.3, 0.9, 0.65, 1) if not app.camera_running else (0.92, 0.37, 0.34, 1)
+                    background_color: THEME_RED if not app.camera_running else THEME_RED_DEEP
                     on_release: app.toggle_camera()
             BoxLayout:
                 size_hint_y: None
@@ -383,15 +415,16 @@ KV = """
                 spacing: "10dp"
                 AppButton:
                     text: "End Set" if app.set_active else "Start Set"
-                    background_color: (0.92, 0.37, 0.34, 1) if app.set_active else (0.42, 0.74, 0.98, 1)
+                    background_color: THEME_RED if not app.set_active else THEME_RED_DEEP
                     on_release: app.toggle_set()
                 AppButton:
                     text: "Reset Counters"
-                    background_color: 0.87, 0.87, 0.92, 1
+                    background_color: 1, 1, 1, 1
+                    color: THEME_RED_DEEP
                     on_release: app.reset_session()
             Label:
                 text: app.current_set_summary
-                color: 0.92, 0.94, 0.98, 1
+                color: THEME_TEXT
                 font_size: "12sp"
                 halign: "left"
                 text_size: self.width, None
@@ -399,7 +432,7 @@ KV = """
                 height: self.texture_size[1] + dp(4)
             Label:
                 text: app.last_set_summary
-                color: 0.72, 0.9, 1, 1
+                color: THEME_TEXT_MUTED
                 font_size: "12sp"
                 halign: "left"
                 text_size: self.width, None
@@ -407,7 +440,7 @@ KV = """
                 height: self.texture_size[1] + dp(4)
             Label:
                 text: app.status_text
-                color: 0.92, 0.94, 0.98, 1
+                color: THEME_TEXT
                 font_size: "12sp"
                 halign: "left"
                 valign: "top"
@@ -432,8 +465,10 @@ class FitSpinApp(App):
     calibration_text = StringProperty("Calibration: pending")
     framing_text = StringProperty("Framing: align your whole body in the guide.")
     transport_text = StringProperty("Transport: connecting...")
-    status_text = StringProperty("Choose an exercise, set the backend URL, then start the rear camera.")
+    status_text = StringProperty("Choose an exercise, set the backend URL, then start the camera.")
     backend_url = StringProperty("http://192.168.0.10:8000")
+    camera_facing = StringProperty("rear")
+    camera_facing_label = StringProperty("Rear camera")
     slot_symbols = ListProperty(["cherry", "lemon", "orange"])
     slot_image_sources = ListProperty(["", "", ""])
     slot_reward_text = StringProperty("Warm-up spin")
@@ -458,6 +493,7 @@ class FitSpinApp(App):
         self._slot_machine = SlotMachineEngine()
         self._root: FitSpinRoot | None = None
         self._preview: SquatPreview | None = None
+        self._exercise_popup: Popup | None = None
         self._last_rep_count = 0
         self._set_started_at: float | None = None
 
@@ -477,7 +513,7 @@ class FitSpinApp(App):
             return self._build_fallback_ui(exc)
 
     def on_start(self):
-        self.status_text = "Choose an exercise, set the backend URL, then start the rear camera."
+        self.status_text = "Choose an exercise, set the backend URL, then start the camera."
         self._warn_if_android_loopback()
 
     def on_stop(self):
@@ -540,9 +576,25 @@ class FitSpinApp(App):
         if not self._ensure_preview():
             return
         self._request_android_permissions()
-        self._preview.connect_rear_camera()
+        self._preview.connect_camera_facing(self.camera_facing)
         self.camera_running = True
         self.status_text = self._camera_started_text()
+
+    def toggle_camera_facing(self) -> None:
+        next_facing = "front" if self.camera_facing == "rear" else "rear"
+        self._set_camera_facing(next_facing)
+
+        if self.camera_running and self._preview:
+            if self.set_active:
+                self._finalize_set("Camera switched. Set saved.")
+            self._preview.disconnect_rear_camera()
+            self._request_android_permissions()
+            self._preview.connect_camera_facing(self.camera_facing)
+            self.camera_running = True
+            self.status_text = f"Switched to {self.camera_facing_label.lower()}. {self._camera_started_text()}"
+            return
+
+        self.status_text = f"Camera mode set to {self.camera_facing_label}."
 
     def reset_session(self) -> None:
         if not self._preview:
@@ -748,6 +800,11 @@ class FitSpinApp(App):
         if self._settings is not None and self._settings.exists("workout"):
             stored = self._settings.get("workout").get("exercise", self.exercise_key)
             self.exercise_key = stored if stored in EXERCISE_LOOKUP else "squat"
+        if self._settings is not None and self._settings.exists("camera"):
+            stored_facing = self._settings.get("camera").get("facing", self.camera_facing)
+            self._set_camera_facing(stored_facing, persist=False)
+        else:
+            self._set_camera_facing(self.camera_facing, persist=False)
 
     def _init_settings(self) -> None:
         settings_path = Path(self.user_data_dir) / "fitspin_settings.json"
@@ -789,28 +846,46 @@ class FitSpinApp(App):
         self.exercise_display = config["label"]
         self.exercise_title = config["title"]
         self.framing_text = f"Framing: {self._default_framing_hint()}"
-        self._refresh_exercise_buttons()
         if not self._slot_machine.state.spinning and not self._slot_machine.state.last_reward:
             self.slot_reward_text = "Warm-up spin"
             self.slot_combo_text = "Every rep kicks the reels"
             self.slot_hint_text = "Fruit combo deck"
             self.slot_status = f"1 {self.exercise_display.lower()} = 1 spin"
 
-    def _refresh_exercise_buttons(self) -> None:
-        if self._root is None:
-            return
-        exercise_box = self._root.ids.get("exercise_box")
-        if exercise_box is None:
+    def open_exercise_picker(self) -> None:
+        if self._exercise_popup is not None:
             return
 
-        exercise_box.clear_widgets()
+        content = BoxLayout(orientation="vertical", spacing=dp(10), padding=dp(14))
+        content.add_widget(
+            Label(
+                text="Choose a workout mode",
+                color=(0.60, 0.07, 0.10, 1),
+                bold=True,
+                font_size="18sp",
+                size_hint_y=None,
+                height=dp(28),
+            )
+        )
+
+        grid = GridLayout(cols=1, spacing=dp(8), size_hint_y=None, padding=(0, 0, 0, dp(4)))
+        grid.bind(minimum_height=grid.setter("height"))
+
+        popup = Popup(
+            title="Exercise Picker",
+            separator_height=0,
+            size_hint=(0.9, None),
+            height=dp(430),
+            auto_dismiss=True,
+        )
+
         for option in EXERCISE_CATALOG:
             selected = option["key"] == self.exercise_key
             button = Button(
                 text=f"[b]{option['label']}[/b]\\n[size=12sp]{option['subtitle']}[/size]",
                 markup=True,
                 size_hint_y=None,
-                height=dp(64),
+                height=dp(72),
                 background_normal="",
                 background_down="",
                 border=(0, 0, 0, 0),
@@ -818,28 +893,56 @@ class FitSpinApp(App):
                 font_size="15sp",
                 halign="center",
                 valign="middle",
-                color=(0.04, 0.05, 0.07, 1) if selected else (0.96, 0.98, 1, 1),
-                background_color=(0.98, 0.79, 0.22, 1) if selected else (0.16, 0.2, 0.26, 0.98),
+                color=(0.60, 0.07, 0.10, 1) if selected else (1, 1, 1, 1),
+                background_color=(1, 1, 1, 1) if selected else (0.82, 0.12, 0.16, 1),
             )
             button.bind(size=self._resize_markup_button)
-            button.bind(on_release=partial(self._on_exercise_button, option["key"]))
-            exercise_box.add_widget(button)
+            button.bind(on_release=partial(self._select_exercise_from_popup, popup, option["key"]))
+            grid.add_widget(button)
+
+        scroll = ScrollView(do_scroll_x=False)
+        scroll.add_widget(grid)
+        content.add_widget(scroll)
+
+        close_button = Button(
+            text="Close",
+            size_hint_y=None,
+            height=dp(46),
+            background_normal="",
+            background_down="",
+            border=(0, 0, 0, 0),
+            bold=True,
+            color=(1, 1, 1, 1),
+            background_color=(0.60, 0.07, 0.10, 1),
+        )
+        close_button.bind(on_release=lambda *_args: popup.dismiss())
+        content.add_widget(close_button)
+
+        popup.content = content
+        self._exercise_popup = popup
+        popup.bind(on_dismiss=self._on_exercise_popup_dismiss)
+        popup.open()
 
     @staticmethod
     def _resize_markup_button(button: Button, _size) -> None:
         button.text_size = (button.width - dp(18), button.height - dp(12))
 
-    def _on_exercise_button(self, exercise: str, *_args) -> None:
+    def _select_exercise_from_popup(self, popup: Popup, exercise: str, *_args) -> None:
+        popup.dismiss()
         self.select_exercise(exercise)
 
+    def _on_exercise_popup_dismiss(self, *_args) -> None:
+        self._exercise_popup = None
+
     def _camera_started_text(self) -> str:
+        camera_phrase = "selfie camera" if self.camera_facing == "front" else "rear camera"
         if self.exercise_key == "pullup":
-            return "Camera started. Step under the bar, show your full body and both hands, then tap Start Set."
+            return f"{camera_phrase.capitalize()} started. Step under the bar, show your full body and both hands, then tap Start Set."
         if self.exercise_key == "pushup":
-            return "Camera started. Place the phone side-on so head, hips, hands, and heels stay visible, then tap Start Set."
+            return f"{camera_phrase.capitalize()} started. Place the phone side-on so head, hips, hands, and heels stay visible, then tap Start Set."
         if self.exercise_key == "peckdeck":
-            return "Camera started. Sit facing the phone and keep shoulders, elbows, and hands visible, then tap Start Set."
-        return "Camera started. Place the phone so your full body is visible, then tap Start Set."
+            return f"{camera_phrase.capitalize()} started. Sit facing the phone and keep shoulders, elbows, and hands visible, then tap Start Set."
+        return f"{camera_phrase.capitalize()} started. Place the phone so your full body is visible, then tap Start Set."
 
     def _default_framing_hint(self) -> str:
         if self.exercise_key == "pullup":
@@ -849,6 +952,13 @@ class FitSpinApp(App):
         if self.exercise_key == "peckdeck":
             return "align your upper body, elbows, and both hands in the guide."
         return "align your whole body in the guide."
+
+    def _set_camera_facing(self, facing: str, persist: bool = True) -> None:
+        normalized = "front" if str(facing).strip().lower() in {"front", "selfie"} else "rear"
+        self.camera_facing = normalized
+        self.camera_facing_label = "Selfie camera" if normalized == "front" else "Rear camera"
+        if persist and self._settings is not None:
+            self._settings.put("camera", facing=self.camera_facing)
 
     def _ensure_preview(self) -> bool:
         if self._preview is not None:

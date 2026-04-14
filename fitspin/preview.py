@@ -55,16 +55,20 @@ class SquatPreview(Preview):
         self._connected = False
         self._framing_ok = False
 
-    def connect_rear_camera(self) -> None:
+    def connect_camera_facing(self, camera_facing: str) -> None:
         if self._connected:
             return
+        camera_id = self._camera_id_for_facing(camera_facing)
         self.connect_camera(
-            camera_id="back" if platform == "android" else "0",
+            camera_id=camera_id,
             enable_analyze_pixels=True,
             analyze_pixels_resolution=720,
             enable_video=False,
         )
         self._connected = True
+
+    def connect_rear_camera(self) -> None:
+        self.connect_camera_facing("rear")
 
     def disconnect_rear_camera(self) -> None:
         if not self._connected:
@@ -210,3 +214,10 @@ class SquatPreview(Preview):
     @mainthread
     def _handle_transport_mode(self, mode: str) -> None:
         self._result_listener({"transport_mode": mode})
+
+    @staticmethod
+    def _camera_id_for_facing(camera_facing: str) -> str:
+        normalized = str(camera_facing).strip().lower()
+        if platform == "android":
+            return "front" if normalized in {"front", "selfie"} else "back"
+        return "1" if normalized in {"front", "selfie"} else "0"
