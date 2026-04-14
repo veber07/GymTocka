@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from server.detector import PoseService
 
 
-app = FastAPI(title="FitSpin Squat Backend", version="0.1.0")
+app = FastAPI(title="FitSpin Workout Backend", version="0.2.0")
 pose_service = PoseService()
 
 

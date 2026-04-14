@@ -44,6 +44,18 @@ EXERCISE_CATALOG = (
         "title": "PULL-UP MODE",
         "subtitle": "Bar strength and control",
     },
+    {
+        "key": "pushup",
+        "label": "Push-up",
+        "title": "PUSH-UP MODE",
+        "subtitle": "Plank tension and press",
+    },
+    {
+        "key": "peckdeck",
+        "label": "Peck Deck",
+        "title": "PECK DECK MODE",
+        "subtitle": "Chest squeeze and control",
+    },
 )
 EXERCISE_LOOKUP = {item["key"]: item for item in EXERCISE_CATALOG}
 
@@ -312,7 +324,7 @@ KV = """
         OverlayCard:
             size_hint: None, None
             width: min(root.width * 0.92, dp(446))
-            height: "404dp"
+            height: "488dp"
             pos_hint: {"center_x": 0.5, "y": 0.03}
             Label:
                 text: "Backend URL"
@@ -416,7 +428,7 @@ class FitSpinApp(App):
     exercise_display = StringProperty("Squat")
     exercise_title = StringProperty("SQUAT MODE")
     phase_label = StringProperty("waiting")
-    debug_metric = StringProperty("angle: --")
+    debug_metric = StringProperty("metric: --")
     calibration_text = StringProperty("Calibration: pending")
     framing_text = StringProperty("Framing: align your whole body in the guide.")
     transport_text = StringProperty("Transport: connecting...")
@@ -490,7 +502,7 @@ class FitSpinApp(App):
             self._preview.close_stream()
 
     def select_exercise(self, exercise: str) -> None:
-        normalized = "pullup" if exercise == "pullup" else "squat"
+        normalized = exercise if exercise in EXERCISE_LOOKUP else "squat"
         if self.exercise_key == normalized:
             return
         previous_display = self.exercise_display
@@ -502,10 +514,10 @@ class FitSpinApp(App):
         self._apply_exercise_ui()
         self.rep_count = 0
         self.phase_label = "waiting"
-        self.debug_metric = "angle: --"
+        self.debug_metric = "metric: --"
         self.calibration_ready = False
         self.calibration_text = "Calibration: pending"
-        self.framing_text = "Framing: align your whole body in the guide."
+        self.framing_text = f"Framing: {self._default_framing_hint()}"
         self.transport_text = "Transport: connecting..."
         self.current_set_summary = "Current set: inactive"
         self.last_set_summary = f"Last set: no completed {self.exercise_display.lower()} set yet"
@@ -541,7 +553,7 @@ class FitSpinApp(App):
         self.set_duration_text = "00:00"
         self.current_set_summary = "Current set: inactive"
         self.calibration_text = "Calibration: pending"
-        self.framing_text = "Framing: align your whole body in the guide."
+        self.framing_text = f"Framing: {self._default_framing_hint()}"
         self.transport_text = "Transport: connecting..."
         self.status_text = f"Resetting {self.exercise_display.lower()} session..."
         self._preview.clear_annotations()
@@ -565,7 +577,7 @@ class FitSpinApp(App):
         self.set_duration_text = "00:00"
         self.current_set_summary = "Current set: preparing..."
         self.calibration_text = "Calibration: pending"
-        self.framing_text = "Framing: align your whole body in the guide."
+        self.framing_text = f"Framing: {self._default_framing_hint()}"
         self.transport_text = "Transport: connecting..."
         self.status_text = f"Starting a new {self.exercise_display.lower()} set..."
         self._preview.clear_annotations()
@@ -586,7 +598,7 @@ class FitSpinApp(App):
                 self.status_text = (
                     "Framing looks good. Tap Start Set, then hold the start position to calibrate."
                     if framing_ok
-                    else str(framing_feedback or "Align your whole body in the guide before starting.")
+                    else str(framing_feedback or f"Please {self._default_framing_hint()}")
                 )
             return
 
@@ -594,10 +606,12 @@ class FitSpinApp(App):
         calibration_progress = int(result.get("calibration_progress", 0))
         calibration_required = int(result.get("calibration_required", 0))
         top_angle = result.get("top_angle")
+        metric_label_text = str(result.get("metric_label", "metric")).strip()
+        metric_label = metric_label_text.lower()
 
         if self.calibration_ready:
             self.phase_label = result.get("phase", "up")
-            if isinstance(top_angle, (int, float)):
+            if isinstance(top_angle, (int, float)) and "angle" in metric_label:
                 self.calibration_text = f"Calibration: ready ({top_angle:.0f} deg)"
             else:
                 self.calibration_text = "Calibration: ready"
@@ -607,7 +621,6 @@ class FitSpinApp(App):
 
         self.rep_count = int(result.get("rep_count", 0))
 
-        metric_label = str(result.get("metric_label", "angle")).strip().lower()
         angle = result.get("primary_angle", result.get("squat_angle"))
         self.debug_metric = f"{metric_label}: {angle:.1f}" if isinstance(angle, (int, float)) else f"{metric_label}: --"
 
@@ -638,10 +651,10 @@ class FitSpinApp(App):
         self._slot_machine.reset()
         self.rep_count = int(result.get("rep_count", 0))
         self.phase_label = result.get("phase", "up")
-        self.debug_metric = "angle: --"
+        self.debug_metric = "metric: --"
         self.calibration_ready = bool(result.get("calibrated", False))
         self.calibration_text = "Calibration: pending"
-        self.framing_text = "Framing: align your whole body in the guide."
+        self.framing_text = f"Framing: {self._default_framing_hint()}"
         self._last_rep_count = self.rep_count
         self.current_set_summary = "Current set: inactive"
         self._sync_slot_machine_ui()
@@ -651,11 +664,11 @@ class FitSpinApp(App):
         self._slot_machine.reset()
         self.rep_count = int(result.get("rep_count", 0))
         self.phase_label = "calibrating"
-        self.debug_metric = "angle: --"
+        self.debug_metric = "metric: --"
         self.calibration_ready = False
         calibration_required = int(result.get("calibration_required", 0))
         self.calibration_text = f"Calibration: 0/{calibration_required}" if calibration_required else "Calibration: pending"
-        self.framing_text = "Framing: align your whole body in the guide."
+        self.framing_text = f"Framing: {self._default_framing_hint()}"
         self._last_rep_count = self.rep_count
         self.set_active = True
         self._set_started_at = time.monotonic()
@@ -717,7 +730,7 @@ class FitSpinApp(App):
         self._set_started_at = None
         self.set_duration_text = "00:00"
         self.calibration_text = "Calibration: pending"
-        self.framing_text = "Framing: align your whole body in the guide."
+        self.framing_text = f"Framing: {self._default_framing_hint()}"
         self.current_set_summary = "Current set: inactive"
         self.last_set_summary = f"Last set ({self.exercise_display}): {self.rep_count} reps | {self.coin_score} coins | {duration_text}"
         if self._preview:
@@ -775,6 +788,7 @@ class FitSpinApp(App):
         self.exercise_key = config["key"]
         self.exercise_display = config["label"]
         self.exercise_title = config["title"]
+        self.framing_text = f"Framing: {self._default_framing_hint()}"
         self._refresh_exercise_buttons()
         if not self._slot_machine.state.spinning and not self._slot_machine.state.last_reward:
             self.slot_reward_text = "Warm-up spin"
@@ -821,7 +835,20 @@ class FitSpinApp(App):
     def _camera_started_text(self) -> str:
         if self.exercise_key == "pullup":
             return "Camera started. Step under the bar, show your full body and both hands, then tap Start Set."
+        if self.exercise_key == "pushup":
+            return "Camera started. Place the phone side-on so head, hips, hands, and heels stay visible, then tap Start Set."
+        if self.exercise_key == "peckdeck":
+            return "Camera started. Sit facing the phone and keep shoulders, elbows, and hands visible, then tap Start Set."
         return "Camera started. Place the phone so your full body is visible, then tap Start Set."
+
+    def _default_framing_hint(self) -> str:
+        if self.exercise_key == "pullup":
+            return "align your whole body and both hands in the guide."
+        if self.exercise_key == "pushup":
+            return "align your side profile from head to heels in the guide."
+        if self.exercise_key == "peckdeck":
+            return "align your upper body, elbows, and both hands in the guide."
+        return "align your whole body in the guide."
 
     def _ensure_preview(self) -> bool:
         if self._preview is not None:

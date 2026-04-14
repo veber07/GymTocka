@@ -23,7 +23,7 @@ def main() -> None:
     assert health.status_code == 200, health.text
     assert health.json()["status"] == "ok"
 
-    for exercise in ("squat", "pullup"):
+    for exercise in ("squat", "pullup", "pushup", "peckdeck"):
         reset = client.post(
             "/api/v1/exercise/reset",
             json={"exercise": exercise, "session_id": f"smoke-{exercise}"},
@@ -48,20 +48,27 @@ def main() -> None:
         assert "framing_feedback" in analyze_json
         assert analyze_json["exercise"] == exercise
 
+    alias_reset = client.post(
+        "/api/v1/exercise/reset",
+        json={"exercise": "kliky", "session_id": "smoke-alias"},
+    )
+    assert alias_reset.status_code == 200, alias_reset.text
+    assert alias_reset.json()["exercise"] == "pushup"
+
     legacy_reset = client.post("/api/v1/squat/reset", json={"session_id": "smoke-legacy"})
     assert legacy_reset.status_code == 200, legacy_reset.text
     assert legacy_reset.json()["exercise"] == "squat"
 
     with client.websocket_connect("/ws/exercise") as websocket:
-        websocket.send_json({"action": "reset", "exercise": "pullup", "session_id": "smoke-ws"})
+        websocket.send_json({"action": "reset", "exercise": "peckdeck", "session_id": "smoke-ws"})
         reset_result = websocket.receive_json()
         assert reset_result["rep_count"] == 0
-        assert reset_result["exercise"] == "pullup"
+        assert reset_result["exercise"] == "peckdeck"
 
         websocket.send_json(
             {
                 "action": "analyze",
-                "exercise": "pullup",
+                "exercise": "peckdeck",
                 "session_id": "smoke-ws",
                 "image_b64": blank_image_b64(),
             }
@@ -69,7 +76,7 @@ def main() -> None:
         ws_result = websocket.receive_json()
         assert "status" in ws_result
         assert "framing_feedback" in ws_result
-        assert ws_result["exercise"] == "pullup"
+        assert ws_result["exercise"] == "peckdeck"
 
     print("Smoke test passed.")
 

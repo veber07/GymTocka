@@ -1,12 +1,12 @@
 # FitSpin MVP
 
-Android-first prototype for a gamified squat tracker built in Python.
+Android-first prototype for a gamified workout tracker built in Python.
 
 ## What is included
 
 - `main.py`: Kivy Android client
 - `fitspin/`: rear camera preview, backend networking, slot machine UI
-- `server/`: FastAPI backend with MediaPipe squat tracking
+- `server/`: FastAPI backend with MediaPipe exercise tracking
 - `run_backend.py`: simple local backend launcher
 - `scripts/`: helper scripts for backend run, WSL build, and APK install
 - `buildozer.spec`: Android packaging starting point
@@ -134,25 +134,25 @@ If WSL2 is blocked on your machine, use GitHub Actions instead:
 ## Architecture snapshot
 
 - `fitspin/` is the Android client.
-- `server/` is the squat detection backend.
+- `server/` is the exercise detection backend.
 - The app sends compressed camera frames to the backend every ~180ms.
 - The app prefers a persistent WebSocket stream and falls back to HTTP if needed.
-- The backend returns landmarks, squat angle, phase, and rep events.
+- The backend returns landmarks, a primary tracking metric, phase, and rep events.
 - Each rep event triggers one slot machine spin in the app.
-- The app can reset the active squat session without restarting.
+- The app can reset the active exercise session without restarting.
 - Tracking only runs during an active set, started from the app UI.
-- Each new set begins with a short standing calibration to personalize squat thresholds.
+- Each new set begins with a short exercise-specific calibration to personalize thresholds.
 - The camera preview includes a framing guide that changes color when the body is centered well.
 
 ## Current behavior
 
-- Squat only
+- Supported exercises: squat, pull-up, push-up, and peck deck
 - Rear camera
-- One completed squat triggers one slot spin
+- One completed rep triggers one slot spin
 - Very simple threshold-based rep counting
 - Pose inference runs on the backend, not directly on the phone
 - `Start Set` begins a fresh timed series and clears counters
-- The first seconds of a set are used for standing calibration before reps count
+- The first seconds of a set are used for the exercise start-position calibration before reps count
 - `End Set` stops tracking and stores the last set summary
 - `Reset Counters` clears the session without starting a new set
 - Framing hints tell the user to move closer, farther back, or re-center
@@ -162,8 +162,8 @@ If WSL2 is blocked on your machine, use GitHub Actions instead:
 
 - Requires the phone and backend machine to be on the same network
 - Network latency affects rep feedback speed
-- Bench press and pull-up are not implemented yet
-- Squat counting is threshold-based, so edge cases and false counts still exist
+- Bench press is not implemented yet
+- The rep counting is threshold-based, so edge cases and false counts still exist
 - Android APK build was prepared here, but not executed in this workspace
 
 ## Next recommended steps

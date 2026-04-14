@@ -30,7 +30,7 @@ RIGHT_ANKLE = 28
 
 MODEL_PATH = Path(__file__).resolve().parent / "models" / "pose_landmarker_full.task"
 
-SUPPORTED_EXERCISES = ("squat", "pullup")
+SUPPORTED_EXERCISES = ("squat", "pullup", "pushup", "peckdeck")
 
 
 def angle_degrees(a, b, c) -> Optional[float]:
@@ -82,18 +82,37 @@ def landmark_visible(landmark, threshold: float = 0.45) -> bool:
 
 
 def normalize_exercise(exercise: str | None) -> str:
-    candidate = (exercise or "squat").strip().lower().replace("-", "").replace("_", "")
-    if candidate in {"pullup", "pullups"}:
-        return "pullup"
-    if candidate in {"squat", "squats"}:
-        return "squat"
+    candidate = (exercise or "squat").strip().lower().replace("-", "").replace("_", "").replace(" ", "")
+    aliases = {
+        "squat": {"squat", "squats"},
+        "pullup": {"pullup", "pullups"},
+        "pushup": {"pushup", "pushups", "klik", "kliky", "pushupy"},
+        "peckdeck": {"peckdeck", "peckdecks", "pecdeck", "pecdecks", "butterfly"},
+    }
+    for normalized, names in aliases.items():
+        if candidate in names:
+            return normalized
     return "squat"
 
 
 def exercise_display_name(exercise: str) -> str:
+    if exercise == "peckdeck":
+        return "Peck Deck"
+    if exercise == "pushup":
+        return "Push-up"
     if exercise == "pullup":
         return "Pull-up"
     return "Squat"
+
+
+def initial_framing_feedback(exercise: str) -> str:
+    if exercise == "pullup":
+        return "Frame your full body and both hands before starting."
+    if exercise == "pushup":
+        return "Frame your side profile from head to heels before starting."
+    if exercise == "peckdeck":
+        return "Frame your upper body, elbows, and both hands before starting."
+    return "Frame your whole body before starting."
 
 
 def framing_feedback(landmarks, exercise: str) -> dict[str, object]:
@@ -117,6 +136,42 @@ def framing_feedback(landmarks, exercise: str) -> dict[str, object]:
                 "framing_ok": False,
                 "framing_feedback": "Show your full body and both hands clearly before starting pull-ups.",
             }
+    elif exercise == "pushup":
+        required_points = [
+            NOSE,
+            LEFT_SHOULDER,
+            RIGHT_SHOULDER,
+            LEFT_ELBOW,
+            RIGHT_ELBOW,
+            LEFT_WRIST,
+            RIGHT_WRIST,
+            LEFT_HIP,
+            RIGHT_HIP,
+            LEFT_ANKLE,
+            RIGHT_ANKLE,
+        ]
+        visible_points = [landmarks[index] for index in required_points if landmark_visible(landmarks[index])]
+        if len(visible_points) < 6:
+            return {
+                "framing_ok": False,
+                "framing_feedback": "Show your side profile from head to heels and keep both hands visible.",
+            }
+    elif exercise == "peckdeck":
+        required_points = [
+            NOSE,
+            LEFT_SHOULDER,
+            RIGHT_SHOULDER,
+            LEFT_ELBOW,
+            RIGHT_ELBOW,
+            LEFT_WRIST,
+            RIGHT_WRIST,
+        ]
+        visible_points = [landmarks[index] for index in required_points if landmark_visible(landmarks[index])]
+        if len(visible_points) < 6:
+            return {
+                "framing_ok": False,
+                "framing_feedback": "Sit facing the camera and show your head, elbows, and hands clearly.",
+            }
     else:
         required_points = [
             NOSE,
@@ -139,9 +194,83 @@ def framing_feedback(landmarks, exercise: str) -> dict[str, object]:
     min_x, max_x = min(xs), max(xs)
     min_y, max_y = min(ys), max(ys)
     body_height = max_y - min_y
+    body_width = max_x - min_x
     center_x = (min_x + max_x) / 2
+    center_y = (min_y + max_y) / 2
     top_margin = min_y
     bottom_margin = 1.0 - max_y
+
+    if exercise == "pushup":
+        if min_x < 0.03 or max_x > 0.97 or top_margin < 0.03 or bottom_margin < 0.03 or body_width > 0.94:
+            return {
+                "framing_ok": False,
+                "framing_feedback": "Move farther back so your whole push-up position fits in frame.",
+            }
+        if max(body_width, body_height) < 0.46:
+            return {
+                "framing_ok": False,
+                "framing_feedback": "Move a bit closer so your full push-up is easier to track.",
+            }
+        if center_x < 0.34:
+            return {
+                "framing_ok": False,
+                "framing_feedback": "Move a little to the right to center your push-up setup.",
+            }
+        if center_x > 0.66:
+            return {
+                "framing_ok": False,
+                "framing_feedback": "Move a little to the left to center your push-up setup.",
+            }
+        if center_y < 0.28:
+            return {
+                "framing_ok": False,
+                "framing_feedback": "Move slightly downward in frame so your full body stays centered.",
+            }
+        if center_y > 0.72:
+            return {
+                "framing_ok": False,
+                "framing_feedback": "Move slightly upward in frame so your full body stays centered.",
+            }
+        return {
+            "framing_ok": True,
+            "framing_feedback": "Push-up framing looks good.",
+        }
+
+    if exercise == "peckdeck":
+        if top_margin < 0.03 or max_y > 0.88 or body_width > 0.9 or body_height > 0.82:
+            return {
+                "framing_ok": False,
+                "framing_feedback": "Move a bit farther back so your upper body and both hands fit comfortably.",
+            }
+        if body_width < 0.28 and body_height < 0.24:
+            return {
+                "framing_ok": False,
+                "framing_feedback": "Move a bit closer so your chest and arm motion are easier to track.",
+            }
+        if center_x < 0.34:
+            return {
+                "framing_ok": False,
+                "framing_feedback": "Move a little to the right to center your upper body.",
+            }
+        if center_x > 0.66:
+            return {
+                "framing_ok": False,
+                "framing_feedback": "Move a little to the left to center your upper body.",
+            }
+        if center_y < 0.18:
+            return {
+                "framing_ok": False,
+                "framing_feedback": "Lower the camera slightly so your elbows and hands stay in frame.",
+            }
+        if center_y > 0.62:
+            return {
+                "framing_ok": False,
+                "framing_feedback": "Raise the camera slightly so your upper body stays centered.",
+            }
+        return {
+            "framing_ok": True,
+            "framing_feedback": "Peck deck framing looks good.",
+        }
 
     if top_margin < 0.03 or bottom_margin < 0.04 or body_height > 0.9:
         return {
@@ -439,6 +568,285 @@ class PullUpCounter:
         }
 
 
+@dataclass
+class PushUpCounterState:
+    reps: int = 0
+    phase: str = "up"
+    last_angle: Optional[float] = None
+    smoothed_angles: deque[float] = field(default_factory=lambda: deque(maxlen=5))
+    smoothed_body_angles: deque[float] = field(default_factory=lambda: deque(maxlen=5))
+    calibration_angle_samples: deque[float] = field(default_factory=lambda: deque(maxlen=10))
+    calibration_body_samples: deque[float] = field(default_factory=lambda: deque(maxlen=10))
+    calibrated: bool = False
+    top_angle: Optional[float] = None
+    plank_angle: Optional[float] = None
+    down_threshold: float = 96.0
+    up_threshold: float = 152.0
+    body_threshold: float = 150.0
+    last_seen_at: float = field(default_factory=time.monotonic)
+
+
+class PushUpCounter:
+    CALIBRATION_FRAMES_REQUIRED = 8
+    EXTENDED_ELBOW_THRESHOLD = 150.0
+    STRAIGHT_BODY_THRESHOLD = 150.0
+
+    def __init__(self) -> None:
+        self.state = PushUpCounterState()
+
+    def metric_label(self) -> str:
+        return "Elbow angle"
+
+    def reset(self) -> None:
+        self.state = PushUpCounterState()
+
+    def update(self, landmarks) -> dict:
+        left_elbow = angle_degrees(
+            landmarks[LEFT_SHOULDER],
+            landmarks[LEFT_ELBOW],
+            landmarks[LEFT_WRIST],
+        )
+        right_elbow = angle_degrees(
+            landmarks[RIGHT_SHOULDER],
+            landmarks[RIGHT_ELBOW],
+            landmarks[RIGHT_WRIST],
+        )
+        elbow_angle = average([left_elbow, right_elbow])
+        if elbow_angle is None:
+            return self._result(
+                rep_completed=False,
+                status="Keep shoulders, elbows, and wrists visible for push-up tracking.",
+            )
+
+        left_body = angle_degrees(
+            landmarks[LEFT_SHOULDER],
+            landmarks[LEFT_HIP],
+            landmarks[LEFT_ANKLE],
+        )
+        right_body = angle_degrees(
+            landmarks[RIGHT_SHOULDER],
+            landmarks[RIGHT_HIP],
+            landmarks[RIGHT_ANKLE],
+        )
+        body_angle = average([left_body, right_body])
+        if body_angle is None:
+            return self._result(
+                rep_completed=False,
+                status="Keep your shoulders, hips, and ankles visible in side view.",
+            )
+
+        self.state.smoothed_angles.append(elbow_angle)
+        self.state.smoothed_body_angles.append(body_angle)
+        smooth_angle = sum(self.state.smoothed_angles) / len(self.state.smoothed_angles)
+        smooth_body = sum(self.state.smoothed_body_angles) / len(self.state.smoothed_body_angles)
+        self.state.last_angle = smooth_angle
+        self.state.last_seen_at = time.monotonic()
+
+        if not self.state.calibrated:
+            return self._calibrate(smooth_angle, smooth_body)
+
+        plank_ok = smooth_body >= self.state.body_threshold
+        down_position = plank_ok and smooth_angle <= self.state.down_threshold
+        top_position = plank_ok and smooth_angle >= self.state.up_threshold
+
+        rep_completed = False
+        if self.state.phase == "up" and down_position:
+            self.state.phase = "down"
+        elif self.state.phase == "down" and top_position:
+            self.state.phase = "up"
+            self.state.reps += 1
+            rep_completed = True
+
+        if not plank_ok:
+            status = "Keep your hips in line with your shoulders and heels."
+        elif self.state.phase == "down":
+            status = "Press back up to a strong plank."
+        elif down_position:
+            status = "Nice depth. Press back up."
+        else:
+            status = "Lower your chest with control."
+        return self._result(rep_completed=rep_completed, status=status)
+
+    def _calibrate(self, smooth_angle: float, smooth_body: float) -> dict:
+        if smooth_angle >= self.EXTENDED_ELBOW_THRESHOLD and smooth_body >= self.STRAIGHT_BODY_THRESHOLD:
+            self.state.calibration_angle_samples.append(smooth_angle)
+            self.state.calibration_body_samples.append(smooth_body)
+        elif self.state.calibration_angle_samples:
+            self.state.calibration_angle_samples.clear()
+            self.state.calibration_body_samples.clear()
+            return self._result(
+                rep_completed=False,
+                status="Hold a high plank with straight arms to calibrate push-ups.",
+            )
+
+        collected = len(self.state.calibration_angle_samples)
+        if collected >= self.CALIBRATION_FRAMES_REQUIRED:
+            self.state.top_angle = sum(self.state.calibration_angle_samples) / collected
+            self.state.plank_angle = sum(self.state.calibration_body_samples) / collected
+            self.state.down_threshold = max(82.0, self.state.top_angle - 72.0)
+            self.state.up_threshold = max(self.state.down_threshold + 18.0, self.state.top_angle - 16.0)
+            self.state.body_threshold = max(145.0, (self.state.plank_angle or 165.0) - 18.0)
+            self.state.calibrated = True
+            self.state.phase = "up"
+            self.state.calibration_angle_samples.clear()
+            self.state.calibration_body_samples.clear()
+            return self._result(
+                rep_completed=False,
+                status="Calibrated. Start doing push-ups.",
+            )
+
+        return self._result(
+            rep_completed=False,
+            status=f"Calibration {collected}/{self.CALIBRATION_FRAMES_REQUIRED}: hold a high plank with straight arms.",
+        )
+
+    def _result(self, rep_completed: bool, status: str) -> dict:
+        return {
+            "rep_completed": rep_completed,
+            "status": status,
+            "calibrated": self.state.calibrated,
+            "calibration_progress": len(self.state.calibration_angle_samples),
+            "calibration_required": self.CALIBRATION_FRAMES_REQUIRED,
+            "top_angle": self.state.top_angle,
+            "down_threshold": self.state.down_threshold,
+            "up_threshold": self.state.up_threshold,
+            "body_threshold": self.state.body_threshold,
+        }
+
+
+@dataclass
+class PeckDeckCounterState:
+    reps: int = 0
+    phase: str = "open"
+    last_angle: Optional[float] = None
+    smoothed_span_ratios: deque[float] = field(default_factory=lambda: deque(maxlen=5))
+    calibration_span_samples: deque[float] = field(default_factory=lambda: deque(maxlen=10))
+    calibrated: bool = False
+    top_angle: Optional[float] = None
+    down_threshold: float = 1.0
+    up_threshold: float = 1.5
+    last_seen_at: float = field(default_factory=time.monotonic)
+
+
+class PeckDeckCounter:
+    CALIBRATION_FRAMES_REQUIRED = 8
+    MIN_OPEN_SPAN_RATIO = 1.55
+    MAX_WRIST_HEIGHT_DELTA = 0.2
+    MAX_ELBOW_HEIGHT_DELTA = 0.18
+
+    def __init__(self) -> None:
+        self.state = PeckDeckCounterState()
+
+    def metric_label(self) -> str:
+        return "Wrist span"
+
+    def reset(self) -> None:
+        self.state = PeckDeckCounterState()
+
+    def update(self, landmarks) -> dict:
+        if not all(
+            landmark_visible(landmarks[index])
+            for index in (
+                LEFT_SHOULDER,
+                RIGHT_SHOULDER,
+                LEFT_ELBOW,
+                RIGHT_ELBOW,
+                LEFT_WRIST,
+                RIGHT_WRIST,
+            )
+        ):
+            return self._result(
+                rep_completed=False,
+                status="Keep shoulders, elbows, and both hands visible for peck deck tracking.",
+            )
+
+        shoulder_span = abs(landmarks[LEFT_SHOULDER].x - landmarks[RIGHT_SHOULDER].x)
+        wrist_span = abs(landmarks[LEFT_WRIST].x - landmarks[RIGHT_WRIST].x)
+        avg_shoulder_y = average_landmark_y(landmarks, [LEFT_SHOULDER, RIGHT_SHOULDER])
+        avg_elbow_y = average_landmark_y(landmarks, [LEFT_ELBOW, RIGHT_ELBOW])
+        avg_wrist_y = average_landmark_y(landmarks, [LEFT_WRIST, RIGHT_WRIST])
+
+        if shoulder_span < 0.08 or avg_shoulder_y is None or avg_elbow_y is None or avg_wrist_y is None:
+            return self._result(
+                rep_completed=False,
+                status="Sit facing the camera so shoulders, elbows, and hands are easy to see.",
+            )
+
+        wrist_level_ok = abs(avg_wrist_y - avg_shoulder_y) <= self.MAX_WRIST_HEIGHT_DELTA
+        elbow_level_ok = abs(avg_elbow_y - avg_shoulder_y) <= self.MAX_ELBOW_HEIGHT_DELTA
+        arm_path_ok = wrist_level_ok and elbow_level_ok
+
+        span_ratio = wrist_span / shoulder_span
+        self.state.smoothed_span_ratios.append(span_ratio)
+        smooth_ratio = sum(self.state.smoothed_span_ratios) / len(self.state.smoothed_span_ratios)
+        self.state.last_angle = smooth_ratio
+        self.state.last_seen_at = time.monotonic()
+
+        if not self.state.calibrated:
+            return self._calibrate(smooth_ratio, arm_path_ok)
+
+        closed_position = arm_path_ok and smooth_ratio <= self.state.down_threshold
+        open_position = arm_path_ok and smooth_ratio >= self.state.up_threshold
+
+        rep_completed = False
+        if self.state.phase == "open" and closed_position:
+            self.state.phase = "closed"
+        elif self.state.phase == "closed" and open_position:
+            self.state.phase = "open"
+            self.state.reps += 1
+            rep_completed = True
+
+        if not arm_path_ok:
+            status = "Keep your elbows and hands roughly level with your shoulders."
+        elif self.state.phase == "closed":
+            status = "Open the handles with control."
+        elif closed_position:
+            status = "Nice squeeze. Open back up slowly."
+        else:
+            status = "Bring the handles together."
+        return self._result(rep_completed=rep_completed, status=status)
+
+    def _calibrate(self, smooth_ratio: float, arm_path_ok: bool) -> dict:
+        if arm_path_ok and smooth_ratio >= self.MIN_OPEN_SPAN_RATIO:
+            self.state.calibration_span_samples.append(smooth_ratio)
+        elif self.state.calibration_span_samples:
+            self.state.calibration_span_samples.clear()
+            return self._result(
+                rep_completed=False,
+                status="Open your arms wide at shoulder height to calibrate peck deck mode.",
+            )
+
+        collected = len(self.state.calibration_span_samples)
+        if collected >= self.CALIBRATION_FRAMES_REQUIRED:
+            self.state.top_angle = sum(self.state.calibration_span_samples) / collected
+            self.state.down_threshold = max(0.78, (self.state.top_angle or 1.8) * 0.55)
+            self.state.up_threshold = max(self.state.down_threshold + 0.22, (self.state.top_angle or 1.8) * 0.82)
+            self.state.calibrated = True
+            self.state.phase = "open"
+            self.state.calibration_span_samples.clear()
+            return self._result(
+                rep_completed=False,
+                status="Calibrated. Start squeezing the handles together.",
+            )
+
+        return self._result(
+            rep_completed=False,
+            status=f"Calibration {collected}/{self.CALIBRATION_FRAMES_REQUIRED}: open your arms wide at shoulder height.",
+        )
+
+    def _result(self, rep_completed: bool, status: str) -> dict:
+        return {
+            "rep_completed": rep_completed,
+            "status": status,
+            "calibrated": self.state.calibrated,
+            "calibration_progress": len(self.state.calibration_span_samples),
+            "calibration_required": self.CALIBRATION_FRAMES_REQUIRED,
+            "top_angle": self.state.top_angle,
+            "down_threshold": self.state.down_threshold,
+            "up_threshold": self.state.up_threshold,
+        }
+
+
 class PoseService:
     def __init__(self) -> None:
         if not MODEL_PATH.exists():
@@ -480,7 +888,7 @@ class PoseService:
                 landmarks=[],
                 framing_result={
                     "framing_ok": False,
-                    "framing_feedback": "No pose detected. Step back and frame your whole body.",
+                    "framing_feedback": f"No pose detected. {initial_framing_feedback(normalized_exercise)}",
                 },
                 update_result={
                     "calibrated": getattr(session.state, "calibrated", False),
@@ -489,7 +897,7 @@ class PoseService:
                     "top_angle": getattr(session.state, "top_angle", None),
                     "down_threshold": getattr(session.state, "down_threshold", 0.0),
                     "up_threshold": getattr(session.state, "up_threshold", 0.0),
-                    "status": "No pose detected. Frame the whole body.",
+                    "status": f"No pose detected. {initial_framing_feedback(normalized_exercise)}",
                 },
             )
 
@@ -538,7 +946,7 @@ class PoseService:
             "down_threshold": getattr(session.state, "down_threshold", 0.0),
             "up_threshold": getattr(session.state, "up_threshold", 0.0),
             "framing_ok": False,
-            "framing_feedback": "Frame your whole body before starting.",
+            "framing_feedback": initial_framing_feedback(normalized_exercise),
             "status": f"{exercise_display_name(normalized_exercise)} session reset.",
         }
 
@@ -550,6 +958,10 @@ class PoseService:
 
     @staticmethod
     def _create_counter(exercise: str) -> CounterProtocol:
+        if exercise == "pushup":
+            return PushUpCounter()
+        if exercise == "peckdeck":
+            return PeckDeckCounter()
         if exercise == "pullup":
             return PullUpCounter()
         return SquatCounter()
@@ -560,6 +972,8 @@ class PoseService:
             return len(session.state.calibration_samples)
         if hasattr(session.state, "calibration_angle_samples"):
             return len(session.state.calibration_angle_samples)
+        if hasattr(session.state, "calibration_span_samples"):
+            return len(session.state.calibration_span_samples)
         return 0
 
     @staticmethod
