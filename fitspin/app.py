@@ -77,12 +77,16 @@ SLOT_BACKGROUND_SOURCE = _asset_path("slot_machine_bg.png")
 
 KV = """
 #:import dp kivy.metrics.dp
-#:set THEME_RED (0.82, 0.12, 0.16, 1)
-#:set THEME_RED_DEEP (0.60, 0.07, 0.10, 1)
-#:set THEME_RED_SOFT (0.96, 0.84, 0.86, 1)
-#:set THEME_WHITE (0.99, 0.99, 1.00, 0.94)
-#:set THEME_TEXT (0.14, 0.09, 0.10, 1)
-#:set THEME_TEXT_MUTED (0.42, 0.20, 0.22, 1)
+#:set THEME_BG (0.03, 0.02, 0.06, 1)
+#:set THEME_BG_ALT (0.08, 0.03, 0.14, 1)
+#:set THEME_PANEL (0.10, 0.08, 0.16, 0.92)
+#:set THEME_PANEL_SOFT (0.16, 0.12, 0.24, 0.95)
+#:set THEME_PURPLE (0.62, 0.34, 1.00, 1)
+#:set THEME_PURPLE_DEEP (0.44, 0.20, 0.84, 1)
+#:set THEME_PURPLE_SOFT (0.72, 0.60, 1.00, 0.22)
+#:set THEME_TEXT (0.97, 0.95, 1.00, 1)
+#:set THEME_TEXT_MUTED (0.74, 0.70, 0.86, 1)
+#:set THEME_SUCCESS (0.36, 0.98, 0.70, 1)
 
 <OverlayCard@BoxLayout>:
     orientation: "vertical"
@@ -91,24 +95,24 @@ KV = """
     size_hint: None, None
     canvas.before:
         Color:
-            rgba: THEME_WHITE
+            rgba: THEME_PANEL
         RoundedRectangle:
             pos: self.pos
             size: self.size
             radius: [22, 22, 22, 22]
         Color:
-            rgba: 1, 1, 1, 0.9
+            rgba: THEME_PANEL_SOFT
         RoundedRectangle:
             pos: self.x + dp(2), self.top - self.height * 0.24
             size: self.width - dp(4), self.height * 0.24
             radius: [20, 20, 10, 10]
         Color:
-            rgba: THEME_RED
+            rgba: THEME_PURPLE
         Line:
             rounded_rectangle: (self.x, self.y, self.width, self.height, 22, 22, 22, 22)
             width: 1.3
         Color:
-            rgba: 0.64, 0.08, 0.11, 0.14
+            rgba: THEME_PURPLE_SOFT
         RoundedRectangle:
             pos: self.x + dp(6), self.y - dp(3)
             size: self.width - dp(12), self.height
@@ -130,7 +134,7 @@ KV = """
             radius: [16, 16, 16, 16]
     canvas.after:
         Color:
-            rgba: THEME_RED_DEEP[0], THEME_RED_DEEP[1], THEME_RED_DEEP[2], 0.16
+            rgba: THEME_PURPLE_DEEP[0], THEME_PURPLE_DEEP[1], THEME_PURPLE_DEEP[2], 0.34
         Line:
             rounded_rectangle: (self.x, self.y, self.width, self.height, 16, 16, 16, 16)
             width: 1
@@ -139,6 +143,27 @@ KV = """
     orientation: "vertical"
     preview_box: preview_box
     FloatLayout:
+        canvas.before:
+            Color:
+                rgba: THEME_BG
+            Rectangle:
+                pos: self.pos
+                size: self.size
+            Color:
+                rgba: 0.38, 0.12, 0.76, 0.18
+            Ellipse:
+                pos: self.width * 0.56, self.height * 0.62
+                size: self.width * 0.72, self.width * 0.72
+            Color:
+                rgba: 0.62, 0.34, 1.0, 0.14
+            Ellipse:
+                pos: -self.width * 0.18, self.height * 0.52
+                size: self.width * 0.62, self.width * 0.62
+            Color:
+                rgba: THEME_BG_ALT[0], THEME_BG_ALT[1], THEME_BG_ALT[2], 0.96
+            Rectangle:
+                pos: self.x, self.y
+                size: self.width, self.height
         BoxLayout:
             id: preview_box
             size_hint: 1, 1
@@ -149,7 +174,7 @@ KV = """
             Label:
                 text: app.exercise_title
                 bold: True
-                color: THEME_RED_DEEP
+                color: THEME_PURPLE
                 font_size: "18sp"
                 halign: "left"
                 text_size: self.size
@@ -160,7 +185,7 @@ KV = """
                 text_size: self.size
             Label:
                 text: "Phase: " + app.phase_label
-                color: THEME_RED
+                color: THEME_PURPLE
                 halign: "left"
                 text_size: self.size
             Label:
@@ -171,7 +196,7 @@ KV = """
                 text_size: self.size
             Label:
                 text: app.calibration_text
-                color: (0.16, 0.60, 0.26, 1) if app.calibration_ready else THEME_RED
+                color: THEME_SUCCESS if app.calibration_ready else THEME_PURPLE
                 font_size: "12sp"
                 halign: "left"
                 text_size: self.size
@@ -189,7 +214,7 @@ KV = """
                 text_size: self.size
             Label:
                 text: "Set: " + ("LIVE " + app.set_duration_text if app.calibration_ready else "CAL " + app.set_duration_text if app.set_active else "idle")
-                color: (0.16, 0.60, 0.26, 1) if app.set_active else THEME_TEXT_MUTED
+                color: THEME_SUCCESS if app.set_active else THEME_TEXT_MUTED
                 font_size: "12sp"
                 halign: "left"
                 text_size: self.size
@@ -207,7 +232,7 @@ KV = """
                     pos_hint: {"x": 0.08, "top": 0.96}
                     size_hint: 0.52, None
                     height: "28dp"
-                    color: THEME_RED_DEEP
+                    color: THEME_PURPLE
                     bold: True
                     font_size: "17sp"
                     halign: "left"
@@ -231,7 +256,7 @@ KV = """
                     FloatLayout:
                         canvas.before:
                             Color:
-                                rgba: THEME_RED_SOFT[0], THEME_RED_SOFT[1], THEME_RED_SOFT[2], 0.42 + app.slot_glow * 0.08
+                                rgba: 0.20, 0.14, 0.32, 0.62 + app.slot_glow * 0.08
                             RoundedRectangle:
                                 pos: self.pos
                                 size: self.size
@@ -245,7 +270,7 @@ KV = """
                     FloatLayout:
                         canvas.before:
                             Color:
-                                rgba: THEME_RED_SOFT[0], THEME_RED_SOFT[1], THEME_RED_SOFT[2], 0.42 + app.slot_glow * 0.08
+                                rgba: 0.20, 0.14, 0.32, 0.62 + app.slot_glow * 0.08
                             RoundedRectangle:
                                 pos: self.pos
                                 size: self.size
@@ -259,7 +284,7 @@ KV = """
                     FloatLayout:
                         canvas.before:
                             Color:
-                                rgba: THEME_RED_SOFT[0], THEME_RED_SOFT[1], THEME_RED_SOFT[2], 0.42 + app.slot_glow * 0.08
+                                rgba: 0.20, 0.14, 0.32, 0.62 + app.slot_glow * 0.08
                             RoundedRectangle:
                                 pos: self.pos
                                 size: self.size
@@ -275,7 +300,7 @@ KV = """
                     pos_hint: {"x": 0.08, "top": 0.42}
                     size_hint: 0.55, None
                     height: "24dp"
-                    color: THEME_RED
+                    color: THEME_PURPLE
                     bold: True
                     font_size: "15sp"
                     halign: "left"
@@ -301,7 +326,7 @@ KV = """
                         width: "28dp"
                         canvas.before:
                             Color:
-                                rgba: THEME_RED[0], THEME_RED[1] + app.coin_flash * 0.05, THEME_RED[2] + app.coin_flash * 0.03, 1
+                                rgba: THEME_PURPLE[0], THEME_PURPLE[1], min(1, THEME_PURPLE[2] + app.coin_flash * 0.08), 1
                             Ellipse:
                                 pos: self.x, self.center_y - dp(13)
                                 size: dp(26), dp(26)
@@ -311,7 +336,7 @@ KV = """
                                 ellipse: (self.x + dp(2), self.center_y - dp(11), dp(22), dp(22))
                     Label:
                         text: "Coins"
-                        color: THEME_RED_DEEP
+                        color: THEME_PURPLE
                         font_size: "16sp"
                         bold: True
                         halign: "left"
@@ -319,7 +344,7 @@ KV = """
                         text_size: self.size
                     Label:
                         text: str(app.coin_score)
-                        color: THEME_RED
+                        color: THEME_PURPLE
                         font_size: "18sp"
                         bold: True
                         halign: "right"
@@ -338,116 +363,156 @@ KV = """
 
         OverlayCard:
             size_hint: None, None
-            width: min(root.width * 0.92, dp(446))
-            height: "452dp"
+            width: min(root.width * 0.92, dp(452))
+            height: min(root.height * 0.48, dp(398)) if app.controls_visible else dp(0.1)
+            opacity: 1 if app.controls_visible else 0
             pos_hint: {"center_x": 0.5, "y": 0.03}
-            Label:
-                text: "Backend URL"
-                bold: True
-                color: THEME_RED_DEEP
-                font_size: "18sp"
-                halign: "left"
-                text_size: self.size
-            Label:
-                text: "Exercise"
-                bold: True
-                color: THEME_RED_DEEP
-                font_size: "17sp"
-                halign: "left"
-                text_size: self.size
-            Label:
-                text: "Current: " + app.exercise_display + " | tap to switch modes"
-                color: THEME_TEXT_MUTED
-                font_size: "12sp"
-                halign: "left"
-                text_size: self.size
-            AppButton:
-                text: "Choose Exercise"
-                size_hint_y: None
-                height: "48dp"
-                background_color: THEME_RED
-                on_release: app.open_exercise_picker()
-            Label:
-                text: "Camera"
-                bold: True
-                color: THEME_RED_DEEP
-                font_size: "17sp"
-                halign: "left"
-                text_size: self.size
-            Label:
-                text: "Current: " + app.camera_facing_label
-                color: THEME_TEXT_MUTED
-                font_size: "12sp"
-                halign: "left"
-                text_size: self.size
-            AppButton:
-                text: "Use Selfie Camera" if app.camera_facing == "rear" else "Use Rear Camera"
-                size_hint_y: None
-                height: "48dp"
-                background_color: THEME_RED_DEEP
-                on_release: app.toggle_camera_facing()
-            TextInput:
-                id: backend_input
-                text: app.backend_url
-                multiline: False
-                size_hint_y: None
-                height: "42dp"
-                foreground_color: THEME_TEXT
-                background_color: 1, 1, 1, 0.98
-                cursor_color: THEME_RED
-                padding: ["10dp", "10dp", "10dp", "10dp"]
-                on_text_validate: app.update_backend_url(self.text)
-            BoxLayout:
-                size_hint_y: None
-                height: "48dp"
-                spacing: "10dp"
-                AppButton:
-                    text: "Save URL"
-                    background_color: THEME_RED
-                    on_release: app.update_backend_url(backend_input.text)
-                AppButton:
-                    text: "Start Camera" if not app.camera_running else "Stop Camera"
-                    background_color: THEME_RED if not app.camera_running else THEME_RED_DEEP
-                    on_release: app.toggle_camera()
-            BoxLayout:
-                size_hint_y: None
-                height: "48dp"
-                spacing: "10dp"
-                AppButton:
-                    text: "End Set" if app.set_active else "Start Set"
-                    background_color: THEME_RED if not app.set_active else THEME_RED_DEEP
-                    on_release: app.toggle_set()
-                AppButton:
-                    text: "Reset Counters"
-                    background_color: 1, 1, 1, 1
-                    color: THEME_RED_DEEP
-                    on_release: app.reset_session()
-            Label:
-                text: app.current_set_summary
-                color: THEME_TEXT
-                font_size: "12sp"
-                halign: "left"
-                text_size: self.width, None
-                size_hint_y: None
-                height: self.texture_size[1] + dp(4)
-            Label:
-                text: app.last_set_summary
-                color: THEME_TEXT_MUTED
-                font_size: "12sp"
-                halign: "left"
-                text_size: self.width, None
-                size_hint_y: None
-                height: self.texture_size[1] + dp(4)
-            Label:
-                text: app.status_text
-                color: THEME_TEXT
-                font_size: "12sp"
-                halign: "left"
-                valign: "top"
-                text_size: self.width, None
-                size_hint_y: None
-                height: self.texture_size[1] + dp(6)
-"""
+            ScrollView:
+                do_scroll_x: False
+                scroll_type: ["bars", "content"]
+                bar_width: "4dp"
+                bar_color: THEME_PURPLE
+                bar_inactive_color: THEME_PURPLE_SOFT
+                GridLayout:
+                    cols: 1
+                    spacing: "10dp"
+                    padding: [0, 0, 0, "8dp"]
+                    size_hint_y: None
+                    height: self.minimum_height
+                    Label:
+                        text: "Control Hub"
+                        bold: True
+                        color: THEME_PURPLE
+                        font_size: "18sp"
+                        halign: "left"
+                        text_size: self.size
+                        size_hint_y: None
+                        height: "28dp"
+                    Label:
+                        text: "Exercise"
+                        bold: True
+                        color: THEME_TEXT
+                        font_size: "16sp"
+                        halign: "left"
+                        text_size: self.size
+                        size_hint_y: None
+                        height: "22dp"
+                    Label:
+                        text: "Current: " + app.exercise_display + " | tap to switch modes"
+                        color: THEME_TEXT_MUTED
+                        font_size: "12sp"
+                        halign: "left"
+                        text_size: self.size
+                        size_hint_y: None
+                        height: "20dp"
+                    AppButton:
+                        text: "Choose Exercise"
+                        size_hint_y: None
+                        height: "48dp"
+                        background_color: THEME_PURPLE
+                        on_release: app.open_exercise_picker()
+                    Label:
+                        text: "Camera"
+                        bold: True
+                        color: THEME_TEXT
+                        font_size: "16sp"
+                        halign: "left"
+                        text_size: self.size
+                        size_hint_y: None
+                        height: "22dp"
+                    Label:
+                        text: "Current: " + app.camera_facing_label
+                        color: THEME_TEXT_MUTED
+                        font_size: "12sp"
+                        halign: "left"
+                        text_size: self.size
+                        size_hint_y: None
+                        height: "20dp"
+                    AppButton:
+                        text: "Use Selfie Camera" if app.camera_facing == "rear" else "Use Rear Camera"
+                        size_hint_y: None
+                        height: "48dp"
+                        background_color: THEME_PURPLE_DEEP
+                        on_release: app.toggle_camera_facing()
+                    Label:
+                        text: "Backend URL"
+                        bold: True
+                        color: THEME_TEXT
+                        font_size: "16sp"
+                        halign: "left"
+                        text_size: self.size
+                        size_hint_y: None
+                        height: "22dp"
+                    TextInput:
+                        id: backend_input
+                        text: app.backend_url
+                        multiline: False
+                        size_hint_y: None
+                        height: "42dp"
+                        foreground_color: THEME_TEXT
+                        background_color: 0.16, 0.12, 0.24, 0.98
+                        cursor_color: THEME_PURPLE
+                        padding: ["10dp", "10dp", "10dp", "10dp"]
+                        on_text_validate: app.update_backend_url(self.text)
+                    BoxLayout:
+                        size_hint_y: None
+                        height: "48dp"
+                        spacing: "10dp"
+                        AppButton:
+                            text: "Save URL"
+                            background_color: THEME_PURPLE_DEEP
+                            on_release: app.update_backend_url(backend_input.text)
+                        AppButton:
+                            text: "Start Camera" if not app.camera_running else "Stop Camera"
+                            background_color: THEME_PURPLE if not app.camera_running else THEME_PURPLE_DEEP
+                            on_release: app.toggle_camera()
+                    BoxLayout:
+                        size_hint_y: None
+                        height: "48dp"
+                        spacing: "10dp"
+                        AppButton:
+                            text: "End Set" if app.set_active else "Start Set"
+                            background_color: THEME_PURPLE if not app.set_active else THEME_PURPLE_DEEP
+                            on_release: app.toggle_set()
+                        AppButton:
+                            text: "Reset Counters"
+                            background_color: 0.18, 0.14, 0.28, 1
+                            on_release: app.reset_session()
+                    Label:
+                        text: app.current_set_summary
+                        color: THEME_TEXT
+                        font_size: "12sp"
+                        halign: "left"
+                        text_size: self.width, None
+                        size_hint_y: None
+                        height: self.texture_size[1] + dp(4)
+                    Label:
+                        text: app.last_set_summary
+                        color: THEME_TEXT_MUTED
+                        font_size: "12sp"
+                        halign: "left"
+                        text_size: self.width, None
+                        size_hint_y: None
+                        height: self.texture_size[1] + dp(4)
+                    Label:
+                        text: app.status_text
+                        color: THEME_TEXT
+                        font_size: "12sp"
+                        halign: "left"
+                        valign: "top"
+                        text_size: self.width, None
+                        size_hint_y: None
+                        height: self.texture_size[1] + dp(8)
+
+        AppButton:
+            size_hint: None, None
+            size: "158dp", "42dp"
+            pos_hint: {"center_x": 0.5, "y": 0.02}
+            text: "Show Controls" if not app.controls_visible else "Hide Controls"
+            background_color: THEME_PURPLE_DEEP if app.controls_visible else THEME_PURPLE
+            opacity: 1 if app.camera_running or not app.controls_visible else 0.86
+            on_release: app.toggle_controls_panel()
+""" 
 
 
 class FitSpinRoot(BoxLayout):
@@ -481,6 +546,7 @@ class FitSpinApp(App):
     camera_running = BooleanProperty(False)
     set_active = BooleanProperty(False)
     calibration_ready = BooleanProperty(False)
+    controls_visible = BooleanProperty(True)
     slot_background_source = StringProperty(SLOT_BACKGROUND_SOURCE)
     set_duration_text = StringProperty("00:00")
     current_set_summary = StringProperty("Current set: inactive")
@@ -571,6 +637,7 @@ class FitSpinApp(App):
                 self._finalize_set("Camera stopped. Set saved.")
             self._preview.disconnect_rear_camera()
             self.camera_running = False
+            self.controls_visible = True
             self.status_text = "Camera stopped."
             return
         if not self._ensure_preview():
@@ -578,6 +645,7 @@ class FitSpinApp(App):
         self._request_android_permissions()
         self._preview.connect_camera_facing(self.camera_facing)
         self.camera_running = True
+        self.controls_visible = False
         self.status_text = self._camera_started_text()
 
     def toggle_camera_facing(self) -> None:
@@ -595,6 +663,9 @@ class FitSpinApp(App):
             return
 
         self.status_text = f"Camera mode set to {self.camera_facing_label}."
+
+    def toggle_controls_panel(self) -> None:
+        self.controls_visible = not self.controls_visible
 
     def reset_session(self) -> None:
         if not self._preview:
@@ -860,7 +931,7 @@ class FitSpinApp(App):
         content.add_widget(
             Label(
                 text="Choose a workout mode",
-                color=(0.60, 0.07, 0.10, 1),
+                color=(0.62, 0.34, 1.0, 1),
                 bold=True,
                 font_size="18sp",
                 size_hint_y=None,
@@ -893,8 +964,8 @@ class FitSpinApp(App):
                 font_size="15sp",
                 halign="center",
                 valign="middle",
-                color=(0.60, 0.07, 0.10, 1) if selected else (1, 1, 1, 1),
-                background_color=(1, 1, 1, 1) if selected else (0.82, 0.12, 0.16, 1),
+                color=(0.97, 0.95, 1, 1),
+                background_color=(0.26, 0.18, 0.40, 1) if selected else (0.62, 0.34, 1.0, 1),
             )
             button.bind(size=self._resize_markup_button)
             button.bind(on_release=partial(self._select_exercise_from_popup, popup, option["key"]))
@@ -913,7 +984,7 @@ class FitSpinApp(App):
             border=(0, 0, 0, 0),
             bold=True,
             color=(1, 1, 1, 1),
-            background_color=(0.60, 0.07, 0.10, 1),
+            background_color=(0.44, 0.20, 0.84, 1),
         )
         close_button.bind(on_release=lambda *_args: popup.dismiss())
         content.add_widget(close_button)
